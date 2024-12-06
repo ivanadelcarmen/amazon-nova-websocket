@@ -7,6 +7,24 @@ Please read through this document before submitting any issues or pull requests 
 information to effectively respond to your bug report or contribution.
 
 
+## Folder Structure and Naming Convention
+
+### Folders
+- Use lowercase letters to avoid case-sensitivity issues across different operating systems.
+- Use hyphens (-) to separate words (kebab-case), which is generally preferred for repository names on GitHub.
+- Be descriptive but concise: The name should clearly indicate the repo's content without being too long.
+- Avoid special characters: Stick to alphanumeric characters and hyphens.
+
+### Notebooks
+- Use underscores (_) to separate words for improved readability.
+- Include a number prefix for ordering to maintain a logical sequence of notebooks.
+- Be descriptive: Each filename should clearly indicate the content of the notebook.
+
+Examples of good notebook naming:
+- 01_simple_image_generation.ipynb
+- 02_color_guided_generation.ipynb
+- 03_image_guided_generation.ipynb
+
 ## Reporting Bugs/Feature Requests
 
 We welcome you to use the GitHub issue tracker to report bugs or suggest features.
@@ -57,3 +75,4 @@ If you discover a potential security issue in this project we ask that you notif
 ## Licensing
 
 See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
+

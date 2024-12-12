@@ -76,3 +76,11 @@ If you discover a potential security issue in this project we ask that you notif
 
 See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
 
+
+## 👏 Contributors
+
+Shout out to these awesome contributors:
+
+<a href="https://github.com/aws-samples/amazon-nova-samples/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=aws-samples/amazon-nova-samples" />
+</a>

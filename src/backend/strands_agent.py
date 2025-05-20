@@ -57,6 +57,7 @@ class StrandsAgent:
         self.agent = Agent(
             tools=tools, 
             model=bedrock_model,
+            system_prompt="You are a chat agent tasked with answering location and weather-related questions. Please include your response within the <response></response> tag."
         )
 
 
@@ -70,9 +71,13 @@ class StrandsAgent:
     def query(self, input):
         output = str(self.agent(input))
         if "<response>" in output and "</response>" in output:
-            output = re.search(r"<response>(.*?)</response>", output, re.DOTALL)
+            match = re.search(r"<response>(.*?)</response>", output, re.DOTALL)
+            if match:
+                output = match.group(1)
         elif "<answer>" in output and "</answer>" in output:
-            output = re.search(r"<answer>(.*?)</answer>", output, re.DOTALL)
+            match = re.search(r"<answer>(.*?)</answer>", output, re.DOTALL)
+            if match:
+                output = match.group(1)
         return output
 
     '''

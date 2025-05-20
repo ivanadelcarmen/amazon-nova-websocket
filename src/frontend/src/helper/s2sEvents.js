@@ -59,14 +59,18 @@ class S2sEvent {
     {
       toolSpec: {
         name: "locationMcpTool",
-        description: "Access location services to find places, addresses.",
+        description: "Access location services to find places, addresses, nearby locations.",
         inputSchema: {
           json: JSON.stringify({
               "type": "object",
               "properties": {
+                "tool": {
+                  "type": "string",
+                  "description": "The function name to search the location service. One of: search_places, get_place, search_nearby, reverse_geocode",
+                },
                 "query": {
                   "type": "string",
-                  "description": "Query required to find a place or address. For example 'largest zoo in Seattle'}"
+                  "description": "The search query to find relevant information"
                 }
               },
               "required": ["query"]
@@ -75,7 +79,6 @@ class S2sEvent {
         }
       }
     },
-  
     {
       toolSpec: {
         name: "getBookingDetails",

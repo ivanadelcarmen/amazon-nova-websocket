@@ -254,7 +254,9 @@ class S2sSessionManager:
             if toolName == "locationmcptool":
                 if self.mcp_loc_client:
                     result = await self.mcp_loc_client.call_tool(content)
-                elif self.strands_agent:
+            
+            if toolName == "externalagent":
+                if self.strands_agent:
                     result = self.strands_agent.query(content)
 
             if not result:

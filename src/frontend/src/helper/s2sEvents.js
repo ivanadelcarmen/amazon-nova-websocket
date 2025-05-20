@@ -81,6 +81,25 @@ class S2sEvent {
     },
     {
       toolSpec: {
+        name: "externalAgent",
+        description: "Get weather information for specific locations.",
+        inputSchema: {
+          json: JSON.stringify({
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "description": "The search query to find relevant information"
+                }
+              },
+              "required": ["query"]
+            }
+          )
+        }
+      }
+    },
+    {
+      toolSpec: {
         name: "getBookingDetails",
         description: "Manage bookings: create, get, update, delete, list, or find bookings by customer name. For update_booking, you can update by booking_id or by customer_name. If booking_id is not provided, all bookings for the given customer_name will be updated.",
         inputSchema: {

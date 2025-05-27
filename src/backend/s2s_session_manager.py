@@ -4,13 +4,12 @@ import base64
 import warnings
 import uuid
 from s2s_events import S2sEvent
-import bedrock_knowledge_bases as kb
 import time
 from aws_sdk_bedrock_runtime.client import BedrockRuntimeClient, InvokeModelWithBidirectionalStreamOperationInput
 from aws_sdk_bedrock_runtime.models import InvokeModelWithBidirectionalStreamInputChunk, BidirectionalInputPayloadPart
 from aws_sdk_bedrock_runtime.config import Config, HTTPAuthSchemeResolver, SigV4AuthScheme
 from smithy_aws_core.credentials_resolvers.environment import EnvironmentCredentialsResolver
-# from booking.booking_query_builder import build_booking_query
+from integration import inline_agent, bedrock_knowledge_bases as kb
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -241,23 +240,46 @@ class S2sSessionManager:
                 content = toolUseContent.get("content")  # Pass the JSON string directly to the agent
                 print(f"Extracted query: {content}")
             
-            # Handle built-in tools directly
-            if toolName == "getkbtool":
-                if not content:
-                    content = "amazon community policy"
-                result = kb.retrieve_kb(content)
-                
+            # Simple toolUse to get system time in UTC
             if toolName == "getdatetool":
                 from datetime import datetime, timezone
                 result = datetime.now(timezone.utc).strftime('%A, %Y-%m-%d %H-%M-%S')
-                                
-            if toolName == "locationmcptool":
+
+            # Bedrock Knowledge Bases (RAG)
+            if toolName == "getkbtool":
+                result = kb.retrieve_kb(content)
+
+            # MCP integration - location search                        
+            if toolName == "getlocationtool":
                 if self.mcp_loc_client:
                     result = await self.mcp_loc_client.call_tool(content)
             
+            # Strands Agent integration - weather questions
             if toolName == "externalagent":
                 if self.strands_agent:
                     result = self.strands_agent.query(content)
+
+            # Bedrock Agents integration - Bookings
+            if toolName == "getbookingdetails":
+                try:
+                    # Pass the tool use content (JSON string) directly to the agent
+                    result = await inline_agent.invoke_agent(content)
+                    # Try to parse and format if needed
+                    try:
+                        booking_json = json.loads(result)
+                        if "bookings" in booking_json:
+                            result = await inline_agent.invoke_agent(
+                                f"Format this booking information for the user: {result}"
+                            )
+                    except Exception:
+                        pass  # Not JSON, just return as is
+                    
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error: {str(e)}")
+                    return {"result": f"Invalid JSON format for booking details: {str(e)}"}
+                except Exception as e:
+                    print(f"Error processing booking details: {str(e)}")
+                    return {"result": f"Error processing booking details: {str(e)}"}
 
             if not result:
                 result = "no result found"

@@ -2,7 +2,8 @@ import React, { createRef } from 'react';
 import './s2s.css'
 import { Icon, Alert, Button, Modal, Box, SpaceBetween, Container, ColumnLayout, Header, FormField, Select, Textarea, Checkbox } from '@cloudscape-design/components';
 import S2sEvent from './helper/s2sEvents';
-import {base64LPCM} from './helper/audioHelper';
+import { base64ToFloat32Array } from './helper/audioHelper';
+import AudioPlayer from './helper/audioPlayer';
 
 class S2sChatBot extends React.Component {
 
@@ -39,15 +40,19 @@ class S2sChatBot extends React.Component {
         };
         this.socket = null;
         this.mediaRecorder = null;
-        //this.audioQueue = new AudioQueue();
+        this.audioPlayer = new AudioPlayer();
         this.chatMessagesEndRef = React.createRef();
-        this.audioPlayerRef = createRef();
-        this.audioQueue = [];
-
     }
 
     componentDidMount() {
-        //this.connectWebSocket();
+        // Initialize audio player early
+        this.audioPlayer.start().catch(err => {
+            console.error("Failed to initialize audio player:", err);
+        });
+    }
+
+    componentWillUnmount() {
+        this.audioPlayer.stop();
     }
 
     componentDidUpdate(prevProps, prevState) {
@@ -55,7 +60,7 @@ class S2sChatBot extends React.Component {
             this.chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }
-    
+
     sendEvent(event) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify(event));
@@ -63,23 +68,10 @@ class S2sChatBot extends React.Component {
             this.displayEvent(event, "out");
         }
     }
-    
+
     cancelAudio() {
-        try {
-            if (this.audioPlayerRef.current && this.state.audioPlayPromise) {
-                this.audioPlayerRef.current.pause();
-                this.audioPlayerRef.current.currentTime = 0;
-                //this.audioPlayerRef.current.removeAttribute('src');
-                this.setState({audioPlayPromise: null});
-              }
-              this.audioQueue = []
-              this.setState({
-                isPlaying: false,
-              });
-        }
-        catch(err) {
-            console.log(err);
-        }
+        this.audioPlayer.bargeIn();
+        this.setState({ isPlaying: false });
     }
 
     audioEnqueue(audioUrl) {
@@ -90,25 +82,25 @@ class S2sChatBot extends React.Component {
     }
 
     playNext() {
-        try{
+        try {
             if (this.isPlaying || this.audioQueue.length === 0) return;
-        
+
             if (this.audioPlayerRef.current && this.audioQueue.length > 0) {
-                let audioUrl  = this.audioQueue.shift();
-                this.setState({ isPlaying: true});
+                let audioUrl = this.audioQueue.shift();
+                this.setState({ isPlaying: true });
 
                 try {
                     this.audioPlayerRef.current.src = audioUrl;
                     this.audioPlayerRef.current.load();  // Reload the audio element to apply the new src
-                    this.setState({audioPlayPromise: this.audioPlayerRef.current.play()}); 
+                    this.setState({ audioPlayPromise: this.audioPlayerRef.current.play() });
                 }
-                catch(err) {
+                catch (err) {
                     console.log(err);
                 }
-                
+
                 // Wait for the audio to finish, then play the next one
                 this.audioPlayerRef.current.onended = () => {
-                    this.setState({ isPlaying: false});
+                    this.setState({ isPlaying: false });
                     this.playNext();
                 };
             }
@@ -148,8 +140,14 @@ class S2sChatBot extends React.Component {
                 break;
             case "audioOutput":
                 audioResponse[contentId] += message.event[eventType].content;
-                this.setState({audioResponse: audioResponse});
-                //this.state.audioResponse[contentId] += message.event[eventType].content;
+                this.setState({ audioResponse: audioResponse });
+                try {
+                    const base64Data = message.event[eventType].content;
+                    const audioData = base64ToFloat32Array(base64Data);
+                    this.audioPlayer.playAudio(audioData);
+                } catch (error) {
+                    console.error("Error processing audio chunk:", error);
+                }
                 break;
             case "contentStart":
                 if (contentType === "AUDIO") {
@@ -173,12 +171,7 @@ class S2sChatBot extends React.Component {
                 }
                 break;
             case "contentEnd":
-                if (contentType === "AUDIO") {
-                    var audioUrl = base64LPCM(this.state.audioResponse[contentId]);
-                    this.audioEnqueue(audioUrl);
-                    //this.audioQueue.enqueue(audioUrl);
-                }
-                else if (contentType === "TEXT"){
+                if (contentType === "TEXT") {
                     if (chatMessages.hasOwnProperty(contentId)) {
                         if (chatMessages[contentId].raw === undefined)
                             chatMessages[contentId].raw = [];
@@ -494,7 +487,6 @@ class S2sChatBot extends React.Component {
                             <Checkbox checked={this.state.includeChatHistory} onChange={({ detail }) => this.setState({includeChatHistory: detail.checked})}>Include chat history</Checkbox>
                             <div className='desc'>You can view sample chat history in the settings.</div>
                         </div>
-                        <audio ref={this.audioPlayerRef}></audio>
                     </div>
                     <div className='setting'>
                         <Button onClick={()=> 

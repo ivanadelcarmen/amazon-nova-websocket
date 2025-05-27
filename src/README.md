@@ -1,7 +1,6 @@
-# Sample code for Nova S2S workshop
+# Nova S2S workshop sample code
 
-This project is for the Amazon Nova Sonic speech-to-speech (S2S) workshop and is intended for training purposes. It showcases a sample architecture for building applications that integrate with Nova Sonic, with features specifically designed to expose technical details for educational use.
-
+This project is for the [Amazon Nova Sonic speech-to-speech (S2S) workshop](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US) and is intended for training purposes. It showcases a sample architecture for building applications that integrate with Nova Sonic, with features specifically designed to expose technical details for educational use.
 
 For architectures that require an internet-exposed connection to serve mobile or web clients, the following approach is recommended:
 
@@ -16,23 +15,34 @@ The project includes two core components:
 ```
 nova-s2s-workshop/
 ├── python-server/                              # Python application serves web socket service and health check HTTP endpoint(optional)
+│   ├── integration/
+│   │   ├── bedrock_knowledge_bases.py          # Sample Bedrock Knowledge Bases implementation
+│   │   ├── booking_openapi.json                # Bedrock Agents API definition
+│   │   ├── inline_agent.py                     # Sample Bedrock Agents integration
+│   │   ├── mcp_client.py                       # Sample MCP implementation
+│   │   └── strands_agent.py                    # Sample Strands Agent implementation
 │   ├── server.py                               # Main entry point: starts websocket and health check (optional) servers
 │   ├── s2s_session_manager.py                  # Nova Sonic bidirectional streaming logic incapsulated
 │   ├── s2s_events.py                           # Utlility class construct Nova Sonic events
-│   ├── bedrock_knowledge_bases.py              # Sample Bedrock Knowledge Bases implementation
-│   ├── strands_agent.py                        # Sample Strands Agent implementation
-│   ├── mcp_client.py                           # Sample MCP implementation
+│   ├── setup-for-ec2-lab.sh                    # Bash script for environment setup – intended for instructor-led labs only. Do not use for local deployments.
 │   └── requirements.txt                        # Python dependencies
-└── react-client/                               # Web client implementation
-    ├── src/
-    │   ├── helper/
-    │   │   ├── audioHelper.js                  # Audio utility functions for encoding/decoding
-    │   │   └── s2sEvents.js                    # Utlility class construct Nova Sonic events
-    │   ├── static/                             # Images
-    │   ├── App.js                              # Define website layout and navigation
-    │   ├── index.js                            # Main entry point
-    │   └── s2s.js                              # Main entry point
-    └── package.json                            # REACT manifest file
+├── react-client/                               # Web client implementation
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── eventDisplay.js                 # React component display event details
+│   │   │   ├── meter.js                        # React component display metering information (tokens and cost)
+│   │   ├── helper/
+│   │   │   ├── audioHelper.js                  # Audio utility functions for encoding/decoding
+│   │   │   └── s2sEvents.js                    # Utlility class construct Nova Sonic events
+│   │   ├── static/                             # Images
+│   │   ├── App.js                              # Define website layout and navigation
+│   │   ├── index.js                            # Main entry point
+│   │   └── s2s.js                              # Main entry point
+│   ├── setup-for-ec2-lab.sh                    # Bash script for environment setup – intended for instructor-led labs only. Do not use for local deployments.
+│   └── package.json                            # REACT manifest file
+└── scripts                                     
+    └── booking-resources.yaml                  # CloudFormation stack for Bedrock Agents sample deployment (optional)
+
 ```
 
 ### Prerequisites
@@ -40,8 +50,16 @@ nova-s2s-workshop/
 - Node.js 14+ and npm/yarn for UI development
 - AWS account with Bedrock access
 - AWS credentials configured locally
+- In your AWS account, you can self-serve to gain access to the required model. Please refer to [this process](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/100-introduction/03-model-access) for guidance.
+    - Titan text embedding v2
+    - Nova Lite
+    - Nova Micro
+    - Nova Pro
+    - Nova Sonic
 
 ## Installation instruction
+Follow these instructions to build and launch both the Python WebSocket server and the React UI, which will allow you to converse with S2S and try out the basic features.
+
 Clone the repository:
     
 ```bash
@@ -89,18 +107,12 @@ cd nova-s2s-workshop
     export HEALTH_PORT=8082 
     ```
     
-    You can ignore the Bedrock Knowledge Base Region and ID if you do not plan to test or implement Knowledge Base integration.
-    ```bash
-    export KB_REGION='YOUR_KNOLEDGE_BASE_REGION_NAME'
-    export KB_ID='YOUR_KNOWLEDGE_BASES_ID'
-    ```
-
 4. Start the python websocket server
     ```bash
     python server.py
     ```
 
-⚠️ **Warning:** Keep the Python WebSocket server running, then run the section below to launch the React web application, which will connect to the WebSocket service.
+> Keep the Python WebSocket server running, then run the section below to launch the React web application, which will connect to the WebSocket service.
 
 ### Install and start the REACT frontend application
 1. Navigate to the `react-client` folder
@@ -126,32 +138,127 @@ cd nova-s2s-workshop
     npm start
     ```
 
-> Known issue: This UI is intended for demonstration purposes and may encounter state management issues after frequent conversation start/stop actions. Refreshing the page can help resolve the issue.
+⚠️ **Warning:** Known issue: This UI is intended for demonstration purposes and may encounter state management issues after frequent conversation start/stop actions. Refreshing the page can help resolve the issue.
+
+## Repeatable patterns
+This workshop includes [repeatable patterns](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern) samples show case popular integrations including [Bedrock Knowledge Bases (RAG)](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/01-kb-lab), [MCP](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/02-mcp-lab), [Bedrock Agents](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/04-bedrock-agents), and [Strands Agent](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/03-strands). Some features require additional deployment steps if you're running the workshop in your own environment. Instructions for each feature are provided below.
 
 
-### Agentic workflow integration
-The workshop app includes both [MCP](https://modelcontextprotocol.io/introduction) (Model Context Protocol) and [Strands Agent](https://community.aws/content/2xCUnoqntk2PnWDwyb9JJvMjxKA/step-by-step-guide-setting-up-a-strands-agent-with-aws-bedrock) integrations to demonstrate how Nova Sonic can be integrated with popular agentic workflow frameworks to support complex scenarios.
-Both the MCP and Strands Agent samples connect to [AWS Location MCP server](https://github.com/awslabs/mcp?tab=readme-ov-file#aws-location-service-mcp-server) to retrieve location-related information. 
-The MCP sample illustrates a basic pattern of directly invoking a tool, while the Strands Agent sample showcases a more advanced integration where an agent orchestrates the use of the Location Service and a sample Weather Tool, including reasoning steps.
-The following additional setup is required to try out these two features.
+### Bedrock Knowledge Base (RAG) intergation
+This workshop includes a sample integration with [Amazon Bedrock Knowledge Bases](https://aws.amazon.com/bedrock/knowledge-bases/) to demonstrate RAG (Retrieval-Augmented Generation) based question answering. 
+
+Refer to [this blog](https://aws.amazon.com/blogs/aws/knowledge-bases-now-delivers-fully-managed-rag-experience-in-amazon-bedrock/) if you're new to Amazon Bedrock Knowledge Bases and want to learn how to set one up using the AWS Console UI.
+
+- To enable this feature, set your Knowledge Base ID as an environment variable. Specifying the Knowledge Base region is optional and only required if your Knowledge Base is running in a different region than Sonic.
+    ```bash
+    export KB_REGION='YOUR_KNOLEDGE_BASE_REGION_NAME'
+    export KB_ID='YOUR_KNOWLEDGE_BASES_ID'
+    ```
+
+- Navigate to the `python-server` folder and Start the websocket server:
+    ```bash
+    python server.py
+    ```
+Then, use the sample UI to ask questions related to the data you've indexed into your Knowledge Base. 
+
+For example, in the instructor-led workshop, a PDF of the [Amazon Nova User Guide](https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html) was loaded, so you can ask questions like:
+```
+What is Amazon Nova Sonic?
+```
+
+Refer to [the RAG lab](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/01-kb-lab) for more detailed instruction.
+
+### MCP integration
+
+This workshop includes a sample integration with popular agentic frameworks such as [MCP](https://modelcontextprotocol.io/introduction) (Model Context Protocol). It uses the [AWS Location MCP server](https://github.com/awslabs/mcp?tab=readme-ov-file#aws-location-service-mcp-server) as an example, deployed in STDIO mode, to demonstrate direct tool invocation for answering location-related questions.
+
+![mcp](./static/nova-sonic-mcp-tool.png)
+
+The following additional setup is required to try out the MCP instegration.
 
 - Install uv from [Astral](https://docs.astral.sh/uv/getting-started/installation/)
 
-- Set up an AWS profile with the necessary permissions for Location Services. 
+- Ensure your AWS profile has the necessary permissions for Location Services, and set the profile name as an environment variable.
 ```bash
 export AWS_PROFILE='YOUR_AWS_PROFILE'
-``` 
+```
 
-- Start the python server with MCP:
+- Navigate to the `python-server` folder and Start the websocket server:
 ```bash
 python server.py --agent mcp
 ```
 
-OR
+- You can then try asking questions using the sample UI such as:
+```
+Find me the location of the largest zoo in Seattle.
 
-- Start the python server with Strands Agent:
+Find the largest shopping mall in New York City.
+```
+
+Refer to [the MCP lab](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/02-mcp-lab) for more detailed instruction.
+
+### Bedrock Agents integration
+This workshop includes a sample integration with [Bedrock Agents](https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html) to showcase a booking scenario.
+Follow the instructions below to try out the Bedrock Agents integration.
+
+![bedrock-agents](./static/nova-sonic-bedrock-agents.png)
+
+- Make sure the AWS CLI is installed. If not, follow the instructions [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+
+- Ensure your environment has the appropriate permissions to access the target AWS account, then run the command below.
+    ```bash
+    aws cloudformation deploy --template-file ./scripts/booking-resources.yaml --stack-name bedrock-agents --capabilities CAPABILITY_NAMED_IAM                 
+    ```
+    The CloudFormation template creates the following resources:
+
+    1. DynamoDB Table (Bookings)
+    2. IAM Role for Lambda (BookingLambdaRole)
+    3. Lambda Function (BookingFunction)
+    4. Lambda Permission for Bedrock
+    5. Bedrock Execution Role (BedrockExecutionRole)
+
+- The CloudFormation stack will output the Lambda function ARN, which needs to be set as the environment variable `BOOKING_LAMBDA_ARN` for the sample app to access it. Run the command below to retrieve the ARN and set the environment variable.
+
+    ```bash
+    export BOOKING_LAMBDA_ARN=$(aws cloudformation describe-stacks --stack-name bedrock-agents --query "Stacks[0].Outputs[?OutputKey=='BookingLambdaArn'].OutputValue" --output text)
+    ```
+
+- Navigate to the `python-server` folder and Start the websocket server:
+    ```bash
+    python server.py
+    ```
+
+- Now try out booking-related questions using the sample UI, for example:
+```
+Can you make a booking for John for May 25th at 7 p.m.?
+Can you check if there are any bookings for John?
+Can you update the booking to May 25th at 7:30 p.m.?
+Can you cancel the booking?
+```
+
+Refer to [the Bedrock Agents lab](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/04-bedrock-agents) for more detailed instructions.
+
+### Strands Agent integration
+This workshop demonstrates how to use a [Strands Agent](https://community.aws/content/2xCUnoqntk2PnWDwyb9JJvMjxKA/step-by-step-guide-setting-up-a-strands-agent-with-aws-bedrock)  to orchestrate external workflows, integrating [AWS Location MCP server](https://github.com/awslabs/mcp?tab=readme-ov-file#aws-location-service-mcp-server) and a sample Weather tool, showcasing advanced agent reasoning and orchestration.
+
+![strands](./static/nova-sonic-agent-strands.png)
+
+The following additional setup is required to try out the Strands Agent integration.
+
+- Install uv from [Astral](https://docs.astral.sh/uv/getting-started/installation/)
+
+- Ensure your AWS profile has the necessary permissions for Location Services, and set the profile name as an environment variable.
+```bash
+export AWS_PROFILE='YOUR_AWS_PROFILE'
+```
+
+- Navigate to the `python-server` folder and Start the websocket server:
 ```bash
 python server.py --agent strands
 ```
+- You can then try asking questions using the sample UI such as:
+```
+What’s the weather like in Seattle today?
+```
 
-You can refer to the [Amazon Nova Sonic Workshop](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US) for a detailed walkthrough and insights into the core functionalities of Nova Sonic.
+Refer to [the Strands Agent lab](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/200-labs/02-repeatable-pattern/03-strands) for more detailed instructions.

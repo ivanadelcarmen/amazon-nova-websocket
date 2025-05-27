@@ -2,8 +2,9 @@ import React, { createRef } from 'react';
 import './s2s.css'
 import { Icon, Alert, Button, Modal, Box, SpaceBetween, Container, ColumnLayout, Header, FormField, Select, Textarea, Checkbox } from '@cloudscape-design/components';
 import S2sEvent from './helper/s2sEvents';
-import { base64ToFloat32Array } from './helper/audioHelper';
-import AudioPlayer from './helper/audioPlayer';
+import {base64LPCM} from './helper/audioHelper';
+import Meter from './components/meter';
+import S2sEventDisplay from './components/eventDisplay';
 
 class S2sChatBot extends React.Component {
 
@@ -20,15 +21,15 @@ class S2sChatBot extends React.Component {
             chatMessages: {},
             events: [],
             audioResponse: [],
-            eventsByContentName: [],
             audioChunks: [],
-            audioInputIndex: 0,
             audioPlayPromise: null,
             includeChatHistory: false,
 
             promptName: null,
             textContentName: null,
             audioContentName: null,
+
+            showUsage: false,
 
             // S2S config items
             configAudioInput: null,
@@ -40,38 +41,51 @@ class S2sChatBot extends React.Component {
         };
         this.socket = null;
         this.mediaRecorder = null;
-        this.audioPlayer = new AudioPlayer();
         this.chatMessagesEndRef = React.createRef();
+        this.audioPlayerRef = createRef();
+        this.audioQueue = [];
+        this.stateRef = React.createRef();  
+        this.eventDisplayRef = React.createRef();
+        this.meterRef =React.createRef();
     }
 
     componentDidMount() {
-        // Initialize audio player early
-        this.audioPlayer.start().catch(err => {
-            console.error("Failed to initialize audio player:", err);
-        });
-    }
-
-    componentWillUnmount() {
-        this.audioPlayer.stop();
+        this.stateRef.current = this.state;
     }
 
     componentDidUpdate(prevProps, prevState) {
+        this.stateRef.current = this.state; 
+
         if (prevState.chatMessages.length !== this.state.chatMessages.length) {
             this.chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }
-
+    
     sendEvent(event) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify(event));
             event.timestamp = Date.now();
-            this.displayEvent(event, "out");
+
+            this.eventDisplayRef.current.displayEvent(event, "out");
         }
     }
-
+    
     cancelAudio() {
-        this.audioPlayer.bargeIn();
-        this.setState({ isPlaying: false });
+        try {
+            if (this.audioPlayerRef.current && this.state.audioPlayPromise) {
+                this.audioPlayerRef.current.pause();
+                this.audioPlayerRef.current.currentTime = 0;
+                //this.audioPlayerRef.current.removeAttribute('src');
+                this.setState({audioPlayPromise: null});
+              }
+              this.audioQueue = []
+              this.setState({
+                isPlaying: false,
+              });
+        }
+        catch(err) {
+            console.log(err);
+        }
     }
 
     audioEnqueue(audioUrl) {
@@ -82,33 +96,48 @@ class S2sChatBot extends React.Component {
     }
 
     playNext() {
-        try {
-            if (this.isPlaying || this.audioQueue.length === 0) return;
-
+        try{
+            if (this.state.isPlaying || this.audioQueue.length === 0) return;
+        
             if (this.audioPlayerRef.current && this.audioQueue.length > 0) {
-                let audioUrl = this.audioQueue.shift();
-                this.setState({ isPlaying: true });
+                let audioUrl  = this.audioQueue.shift();
+                this.setState({ isPlaying: true});
 
                 try {
                     this.audioPlayerRef.current.src = audioUrl;
                     this.audioPlayerRef.current.load();  // Reload the audio element to apply the new src
-                    this.setState({ audioPlayPromise: this.audioPlayerRef.current.play() });
+                    const playPromise = this.audioPlayerRef.current.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            // Playback started successfully
+                        }).catch((error) => {
+                            // Playback was interrupted or failed
+                            this.setState({ isPlaying: false, audioPlayPromise: null });
+                        });
+                        this.setState({audioPlayPromise: playPromise});
+                    }
                 }
-                catch (err) {
+                catch(err) {
                     console.log(err);
+                    this.setState({ isPlaying: false, audioPlayPromise: null });
                 }
-
+                
                 // Wait for the audio to finish, then play the next one
                 this.audioPlayerRef.current.onended = () => {
-                    this.setState({ isPlaying: false });
+                    this.setState({ isPlaying: false, audioPlayPromise: null });
                     this.playNext();
+                };
+                this.audioPlayerRef.current.onpause = () => {
+                    this.setState({ isPlaying: false, audioPlayPromise: null });
                 };
             }
         }
         catch (error) {
             console.log(error);
+            this.setState({ isPlaying: false, audioPlayPromise: null });
         }
     }
+
     handleIncomingMessage (message) {
         const eventType = Object.keys(message?.event)[0];
         const role = message.event[eventType]["role"];
@@ -140,14 +169,8 @@ class S2sChatBot extends React.Component {
                 break;
             case "audioOutput":
                 audioResponse[contentId] += message.event[eventType].content;
-                this.setState({ audioResponse: audioResponse });
-                try {
-                    const base64Data = message.event[eventType].content;
-                    const audioData = base64ToFloat32Array(base64Data);
-                    this.audioPlayer.playAudio(audioData);
-                } catch (error) {
-                    console.error("Error processing audio chunk:", error);
-                }
+                this.setState({audioResponse: audioResponse});
+                //this.state.audioResponse[contentId] += message.event[eventType].content;
                 break;
             case "contentStart":
                 if (contentType === "AUDIO") {
@@ -171,7 +194,12 @@ class S2sChatBot extends React.Component {
                 }
                 break;
             case "contentEnd":
-                if (contentType === "TEXT") {
+                if (contentType === "AUDIO") {
+                    var audioUrl = base64LPCM(this.state.audioResponse[contentId]);
+                    this.audioEnqueue(audioUrl);
+                    //this.audioQueue.enqueue(audioUrl);
+                }
+                else if (contentType === "TEXT"){
                     if (chatMessages.hasOwnProperty(contentId)) {
                         if (chatMessages[contentId].raw === undefined)
                             chatMessages[contentId].raw = [];
@@ -182,81 +210,20 @@ class S2sChatBot extends React.Component {
 
                 }
                 break;
+            case "usageEvent":
+                if (this.meterRef.current) { 
+                    this.meterRef.current.updateMeter(message);
+                    if (this.state.showUsage === false) {
+                        this.setState({showUsage: true});
+                    }
+                }
+                break;
             default:
                 break;
 
         }
 
-        this.displayEvent(message, "in");
-    }
-
-    displayEvent(event, type) {
-        if (event && event.event) {
-            const eventName = Object.keys(event?.event)[0];
-            let key = null;
-            let ts = Date.now();
-            let interrupted = false;
-            const contentType = event.event[eventName].type;
-            const contentName = event.event[eventName].contentName;
-            const contentId = event.event[eventName].contentId;
-
-            if (eventName === "audioOutput") {
-                key = `${eventName}-${contentId}`;
-                // truncate event audio content
-                event.event.audioOutput.content = event.event.audioOutput.content.substr(0,10);
-            }
-            else if (eventName === "audioInput") {
-                key = `${eventName}-${contentName}-${this.state.audioInputIndex}`;
-            }
-            else if (eventName === "contentStart" || eventName === "textInput" || eventName === "contentEnd") {
-                key = `${eventName}}-${contentName}-${contentType}`;
-                if (type === "in" && event.event[eventName].type === "AUDIO") {
-                    this.setState({audioInputIndex: this.state.audioInputIndex + 1});
-                }
-                else if(type === "out") {
-                    key = `${eventName}-${contentName}-${contentType}-${ts}`;
-                }
-            }
-            else if(eventName === "textOutput") {
-                const role = event.event[eventName].role;
-                const content = event.event[eventName].content;
-                if (role === "ASSISTANT" && content.startsWith("{")) {
-                    const evt = JSON.parse(content);
-                    interrupted = evt.interrupted === true;
-                }
-                key = `${eventName}-${ts}`;
-            }
-            else {
-                key = `${eventName}-${ts}`;
-            }
-
-            let eventsByContentName = this.state.eventsByContentName;
-            if (eventsByContentName === null)
-                eventsByContentName = [];
-
-            let exists = false;
-            for(var i=0;i<eventsByContentName.length;i++) {
-                var item = eventsByContentName[i];
-                if (item.key === key && item.type === type) {
-                    item.events.push(event);
-
-                    item.interrupted = interrupted;
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) {
-                const item = {
-                    key: key, 
-                    name: eventName, 
-                    type: type, 
-                    events: [event], 
-                    ts: ts,
-                };
-                eventsByContentName.unshift(item);
-            }
-            this.setState({eventsByContentName: eventsByContentName});
-        }
+        this.eventDisplayRef.current.displayEvent(message, "in");
     }
 
     handleSessionChange = e => {
@@ -266,8 +233,26 @@ class S2sChatBot extends React.Component {
             this.cancelAudio();
         }
         else {
-            this.setState({chatMessages:[], events: [], eventsByContentName: []});
-            this.startSession();
+            // Start session
+            this.setState({
+                chatMessages:{}, 
+                events: [], 
+            });
+            if (this.eventDisplayRef.current) this.eventDisplayRef.current.cleanup();
+            if (this.meterRef.current) this.meterRef.current.cleanup();
+            
+            // Init S2sSessionManager
+            try {
+                if (this.socket === null || this.socket.readyState !== WebSocket.OPEN) {
+                    this.connectWebSocket();
+                }
+
+                // Start microphone 
+                this.startMicrophone();
+            } catch (error) {
+                console.error('Error accessing microphone: ', error);
+            }
+
         }
         this.setState({sessionStarted: !this.state.sessionStarted});
     }
@@ -275,18 +260,18 @@ class S2sChatBot extends React.Component {
     connectWebSocket() {
         // Connect to the S2S WebSocket server
         if (this.socket === null || this.socket.readyState !== WebSocket.OPEN) {
+            const promptName = crypto.randomUUID();
+            const textContentName = crypto.randomUUID();
+            const audioContentName = crypto.randomUUID();
+            this.setState({
+                promptName: promptName,
+                textContentName: textContentName,
+                audioContentName: audioContentName
+            })
+
             this.socket = new WebSocket(process.env.REACT_APP_WEBSOCKET_URL);
-        
             this.socket.onopen = () => {
                 console.log("WebSocket connected!");
-                const promptName = crypto.randomUUID();
-                const textContentName = crypto.randomUUID();
-                const audioContentName = crypto.randomUUID();
-                this.setState({
-                    promptName: promptName,
-                    textContentName: textContentName,
-                    audioContentName: audioContentName
-                })
     
                 // Start session events
                 this.sendEvent(S2sEvent.sessionStart());
@@ -336,20 +321,6 @@ class S2sChatBot extends React.Component {
                 if (this.state.sessionStarted)
                     this.setState({alert: "WebSocket Disconnected"});
             };
-        }
-    }
-
-    startSession() {
-        // Init S2sSessionManager
-        try {
-            if (this.socket === null || this.socket.readyState !== WebSocket.OPEN) {
-                this.connectWebSocket();
-            }
-
-            // Start microphone 
-            this.startMicrophone();
-        } catch (error) {
-            console.error('Error accessing microphone: ', error);
         }
     }
       
@@ -414,9 +385,10 @@ class S2sChatBot extends React.Component {
                         binary += String.fromCharCode(pcmData.getUint8(i));
                     }
     
+                    const currentState = this.stateRef.current;
                     const event = S2sEvent.audioInput(
-                        this.state.promptName,
-                        this.state.audioContentName,
+                        currentState.promptName,
+                        currentState.audioContentName,
                         btoa(binary)
                     );
                     this.sendEvent(event);
@@ -447,8 +419,6 @@ class S2sChatBot extends React.Component {
             console.error('Error accessing microphone: ', error);
         }
     }
-    
-    
 
     endSession() {
         if (this.socket) {
@@ -487,7 +457,9 @@ class S2sChatBot extends React.Component {
                             <Checkbox checked={this.state.includeChatHistory} onChange={({ detail }) => this.setState({includeChatHistory: detail.checked})}>Include chat history</Checkbox>
                             <div className='desc'>You can view sample chat history in the settings.</div>
                         </div>
+                        <audio ref={this.audioPlayerRef}></audio>
                     </div>
+                    {this.state.showUsage && <Meter ref={this.meterRef}/>}
                     <div className='setting'>
                         <Button onClick={()=> 
                             this.setState({
@@ -527,137 +499,116 @@ class S2sChatBot extends React.Component {
                     <Container header={
                         <Header variant="h2">Events</Header>
                     }>
-                    <div className='events'>
-                        {this.state.eventsByContentName.map(event=>{
-                            return <div className={
-                                    event.name === "toolUse"? "event-tool": 
-                                    event.interrupted === true?"event-int":
-                                    event.type === "in"?"event-in":"event-out"
-                                } 
-                                onClick={() => {
-                                    this.setState({selectedEvent: event, showEventJson: true});
-                                }}
-                                >
-                                <Icon name={event.type === "in"? "arrow-down": "arrow-up"} />&nbsp;&nbsp;
-                                {event.name}
-                                {event.events.length > 1? ` (${event.events.length})`: ""}
-                                <div class="tooltip">
-                                    <pre id="jsonDisplay">{event.events.map(e=>{
-                                        return JSON.stringify(e,null,2);
-                                    })
-                                }</pre>
-                                </div>
-                            </div>
-                        })}
-                        <Modal
-                            onDismiss={() => this.setState({showEventJson: false})}
-                            visible={this.state.showEventJson}
-                            header="Event details"
-                            size='medium'
-                            footer={
-                                <Box float="right">
-                                <SpaceBetween direction="horizontal" size="xs">
-                                    <Button variant="link" onClick={() => this.setState({showEventJson: false})}>Close</Button>
-                                </SpaceBetween>
-                                </Box>
-                            }
-                        >
-                            <div className='eventdetail'>
-                            <pre id="jsonDisplay">
-                                {this.state.selectedEvent && this.state.selectedEvent.events.map(e=>{
-                                    const eventType = Object.keys(e?.event)[0];
-                                    if (eventType === "audioInput" || eventType === "audioOutput")
-                                        e.event[eventType].content = e.event[eventType].content.substr(0,10) + "...";
-                                    const ts = new Date(e.timestamp).toLocaleString(undefined, {
-                                        year: "numeric",
-                                        month: "2-digit",
-                                        day: "2-digit",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                        second: "2-digit",
-                                        fractionalSecondDigits: 3, // Show milliseconds
-                                        hour12: false // 24-hour format
-                                    });
-                                    var displayJson = { ...e };
-                                    delete displayJson.timestamp;
-                                    return ts + "\n" + JSON.stringify(displayJson,null,2) + "\n";
-                                })}
-                            </pre>
-                            </div>
-                        </Modal>
-                        <Modal
-                            onDismiss={() => this.setState({showConfig: false})}
-                            visible={this.state.showConfig}
-                            header="Nova S2S settings"
-                            size='large'
-                            footer={
-                                <Box float="right">
-                                <SpaceBetween direction="horizontal" size="xs">
-                                    <Button variant="link" onClick={() => this.setState({showConfig: false})}>Save</Button>
-                                </SpaceBetween>
-                                </Box>
-                            }
-                        >
-                            <div className='config'>
-                                <FormField
-                                    label="Voice Id"
-                                    stretch={true}
-                                >
-                                    <Select
-                                        selectedOption={this.state.configVoiceIdOption}
-                                        onChange={({ detail }) =>
-                                            this.setState({configVoiceIdOption: detail.selectedOption})
-                                        }
-                                        options={[
-                                            { label: "Matthew (en-US)", value: "matthew" },
-                                            { label: "Tiffany (en-US)", value: "tiffany" },
-                                            { label: "Amy (en-GB)", value: "amy" },
-                                        ]}
-                                        />
-                                </FormField>
-                                <br/>
-                                <FormField
-                                    label="System prompt"
-                                    description="For the speech model"
-                                    stretch={true}
-                                >
-                                    <Textarea
-                                        onChange={({ detail }) => this.setState({configSystemPrompt: detail.value})}
-                                        value={this.state.configSystemPrompt}
-                                        placeholder="Speech system prompt"
-                                    />
-                                </FormField>
-                                <br/>
-                                <FormField
-                                    label="Tool use configuration"
-                                    description="For external integration such as RAG and Agents"
-                                    stretch={true}
-                                >
-                                    <Textarea
-                                        onChange={({ detail }) => this.setState({configToolUse: detail.value})}
-                                        value={this.state.configToolUse}
-                                        rows={10}
-                                        placeholder="{}"
-                                    />
-                                </FormField>
-                                        <br/>
-                                <FormField
-                                    label="Chat history"
-                                    description="Sample chat history to resume conversation"
-                                    stretch={true}
-                                >
-                                    <Textarea
-                                        onChange={({ detail }) => this.setState({configChatHistory: detail.value})}
-                                        value={this.state.configChatHistory}
-                                        rows={15}
-                                        placeholder="{}"
-                                    />
-                                </FormField>
-                            </div>
-                        </Modal>
-                    </div>
+                        <S2sEventDisplay ref={this.eventDisplayRef}></S2sEventDisplay>
                     </Container>
                 </ColumnLayout>
+                <Modal
+                    onDismiss={() => this.setState({showEventJson: false})}
+                    visible={this.state.showEventJson}
+                    header="Event details"
+                    size='medium'
+                    footer={
+                        <Box float="right">
+                        <SpaceBetween direction="horizontal" size="xs">
+                            <Button variant="link" onClick={() => this.setState({showEventJson: false})}>Close</Button>
+                        </SpaceBetween>
+                        </Box>
+                    }
+                >
+                    <div className='eventdetail'>
+                    <pre id="jsonDisplay">
+                        {this.state.selectedEvent && this.state.selectedEvent.events.map(e=>{
+                            const eventType = Object.keys(e?.event)[0];
+                            if (eventType === "audioInput" || eventType === "audioOutput")
+                                e.event[eventType].content = e.event[eventType].content.substr(0,10) + "...";
+                            const ts = new Date(e.timestamp).toLocaleString(undefined, {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                                fractionalSecondDigits: 3, // Show milliseconds
+                                hour12: false // 24-hour format
+                            });
+                            var displayJson = { ...e };
+                            delete displayJson.timestamp;
+                            return ts + "\n" + JSON.stringify(displayJson,null,2) + "\n";
+                        })}
+                    </pre>
+                    </div>
+                </Modal>
+                <Modal  
+                    onDismiss={() => this.setState({showConfig: false})}
+                    visible={this.state.showConfig}
+                    header="Nova S2S settings"
+                    size='large'
+                    footer={
+                        <Box float="right">
+                        <SpaceBetween direction="horizontal" size="xs">
+                            <Button variant="link" onClick={() => this.setState({showConfig: false})}>Save</Button>
+                        </SpaceBetween>
+                        </Box>
+                    }
+                >
+                    <div className='config'>
+                        <FormField
+                            label="Voice Id"
+                            stretch={true}
+                        >
+                            <Select
+                                selectedOption={this.state.configVoiceIdOption}
+                                onChange={({ detail }) =>
+                                    this.setState({configVoiceIdOption: detail.selectedOption})
+                                }
+                                options={[
+                                    { label: "Matthew (en-US)", value: "matthew" },
+                                    { label: "Tiffany (en-US)", value: "tiffany" },
+                                    { label: "Amy (en-GB)", value: "amy" },
+                                ]}
+                                />
+                        </FormField>
+                        <br/>
+                        <FormField
+                            label="System prompt"
+                            description="For the speech model"
+                            stretch={true}
+                        >
+                            <Textarea
+                                onChange={({ detail }) => this.setState({configSystemPrompt: detail.value})}
+                                value={this.state.configSystemPrompt}
+                                placeholder="Speech system prompt"
+                                rows={5}
+                            />
+                        </FormField>
+                        <br/>
+                        <FormField
+                            label="Tool use configuration"
+                            description="For external integration such as RAG and Agents"
+                            stretch={true}
+                        >
+                            <Textarea
+                                onChange={({ detail }) => this.setState({configToolUse: detail.value})}
+                                value={this.state.configToolUse}
+                                rows={10}
+                                placeholder="{}"
+                            />
+                        </FormField>
+                                <br/>
+                        <FormField
+                            label="Chat history"
+                            description="Sample chat history to resume conversation"
+                            stretch={true}
+                        >
+                            <Textarea
+                                onChange={({ detail }) => this.setState({configChatHistory: detail.value})}
+                                value={this.state.configChatHistory}
+                                rows={15}
+                                placeholder="{}"
+                            />
+                        </FormField>
+                    </div>
+                </Modal>
             </div>
         );
     }

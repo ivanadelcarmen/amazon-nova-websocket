@@ -9,8 +9,8 @@ import http.server
 import threading
 import os
 from http import HTTPStatus
-from mcp_client import McpLocationClient
-from strands_agent import StrandsAgent
+from integration.mcp_client import McpLocationClient
+from integration.strands_agent import StrandsAgent
 
 # Configure logging
 LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()

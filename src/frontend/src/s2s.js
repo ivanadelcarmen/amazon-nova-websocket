@@ -29,7 +29,7 @@ class S2sChatBot extends React.Component {
             textContentName: null,
             audioContentName: null,
 
-            showUsage: true,
+            showUsage: false,
 
             // S2S config items
             configAudioInput: null,

@@ -1,6 +1,6 @@
 import React, { createRef } from 'react';
 import './eventDisplay.css'
-import { Icon, Alert, Button, Modal, Box, SpaceBetween } from '@cloudscape-design/components';
+import { Icon, Alert, Button, Modal, Box, SpaceBetween, Toggle } from '@cloudscape-design/components';
 
 class S2sEventDisplay extends React.Component {
 
@@ -12,6 +12,8 @@ class S2sEventDisplay extends React.Component {
 
             selectedEvent: null,
             showEventJson: false,
+
+            displayUsage: false,
         };
         this.message = null;
         this.reset= false;
@@ -103,64 +105,79 @@ class S2sEventDisplay extends React.Component {
 
     render() {
         return (
-            <div className='events'>
-                {this.state.eventsByContentName.map(event=>{
-                    return <div className={
-                            event.name === "toolUse"? "event-tool": 
-                            event.interrupted === true?"event-int":
-                            event.type === "in"?"event-in":"event-out"
-                        } 
-                        onClick={() => {
-                            this.setState({selectedEvent: event, showEventJson: true});
-                        }}
-                        >
-                        <Icon name={event.type === "in"? "arrow-down": "arrow-up"} />&nbsp;&nbsp;
-                        {event.name}
-                        {event.events.length > 1? ` (${event.events.length})`: ""}
-                        <div class="tooltip">
-                            <pre id="jsonDisplay">{event.events.map(e=>{
-                                return JSON.stringify(e,null,2);
-                            })
-                        }</pre>
-                        </div>
-                    </div>
-                })}
-                <Modal
-                    onDismiss={() => this.setState({showEventJson: false})}
-                    visible={this.state.showEventJson}
-                    header="Event details"
-                    size='medium'
-                    footer={
-                        <Box float="right">
-                        <SpaceBetween direction="horizontal" size="xs">
-                            <Button variant="link" onClick={() => this.setState({showEventJson: false})}>Close</Button>
-                        </SpaceBetween>
-                        </Box>
+            <div>
+                <div className="toggleUsage">
+                <Toggle
+                    onChange={({ detail }) =>
+                        this.setState({displayUsage: detail.checked })
                     }
-                >
-                    <div className='eventdetail'>
-                    <pre id="jsonDisplay">
-                        {this.state.selectedEvent && this.state.selectedEvent.events.map(e=>{
-                            const eventType = Object.keys(e?.event)[0];
-                            if (eventType === "audioInput" || eventType === "audioOutput")
-                                e.event[eventType].content = e.event[eventType].content.substr(0,10) + "...";
-                            const ts = new Date(e.timestamp).toLocaleString(undefined, {
-                                year: "numeric",
-                                month: "2-digit",
-                                day: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                                fractionalSecondDigits: 3, // Show milliseconds
-                                hour12: false // 24-hour format
-                            });
-                            var displayJson = { ...e };
-                            delete displayJson.timestamp;
-                            return ts + "\n" + JSON.stringify(displayJson,null,2) + "\n";
-                        })}
-                    </pre>
-                    </div>
-                </Modal>
+                    checked={this.state.displayUsage}
+                    >
+                    Display Usage Event
+                </Toggle>
+                </div>
+                <div className='events'>
+                    {this.state.eventsByContentName.map(event=>{
+                        if (!this.state.displayUsage && event.name === "usageEvent")
+                            return;
+                        else return <div className={
+                                event.name === "toolUse"? "event-tool": 
+                                event.name === "usageEvent"? "event-usage": 
+                                event.interrupted === true?"event-int":
+                                event.type === "in"?"event-in":"event-out"
+                            } 
+                            onClick={() => {
+                                this.setState({selectedEvent: event, showEventJson: true});
+                            }}
+                            >
+                            <Icon name={event.type === "in"? "arrow-down": "arrow-up"} />&nbsp;&nbsp;
+                            {event.name}
+                            {event.events.length > 1? ` (${event.events.length})`: ""}
+                            <div class="tooltip">
+                                <pre id="jsonDisplay">{event.events.map(e=>{
+                                    return JSON.stringify(e,null,2);
+                                })
+                            }</pre>
+                            </div>
+                        </div>
+                    })}
+                    <Modal
+                        onDismiss={() => this.setState({showEventJson: false})}
+                        visible={this.state.showEventJson}
+                        header="Event details"
+                        size='medium'
+                        footer={
+                            <Box float="right">
+                            <SpaceBetween direction="horizontal" size="xs">
+                                <Button variant="link" onClick={() => this.setState({showEventJson: false})}>Close</Button>
+                            </SpaceBetween>
+                            </Box>
+                        }
+                    >
+                        <div className='eventdetail'>
+                        <pre id="jsonDisplay">
+                            {this.state.selectedEvent && this.state.selectedEvent.events.map(e=>{
+                                const eventType = Object.keys(e?.event)[0];
+                                if (eventType === "audioInput" || eventType === "audioOutput")
+                                    e.event[eventType].content = e.event[eventType].content.substr(0,10) + "...";
+                                const ts = new Date(e.timestamp).toLocaleString(undefined, {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit",
+                                    fractionalSecondDigits: 3, // Show milliseconds
+                                    hour12: false // 24-hour format
+                                });
+                                var displayJson = { ...e };
+                                delete displayJson.timestamp;
+                                return ts + "\n" + JSON.stringify(displayJson,null,2) + "\n";
+                            })}
+                        </pre>
+                        </div>
+                    </Modal>
+                </div>
             </div>
         );
     }

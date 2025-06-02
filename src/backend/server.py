@@ -231,18 +231,21 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     host, port, health_port = None, None, None
-    if os.getenv("HOST"):
-        host = str(os.getenv("HOST"))
-    if os.getenv("WS_PORT"):
-        port = int(os.getenv("WS_PORT"))
+    host = str(os.getenv("HOST","localhost"))
+    port = int(os.getenv("WS_PORT","8081"))
     if os.getenv("HEALTH_PORT"):
         health_port = int(os.getenv("HEALTH_PORT"))
 
     enable_mcp = args.agent == "mcp"
     enable_strands = args.agent == "strands"
 
+    aws_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+
     if not host or not port:
         print(f"HOST and PORT are required. Received HOST: {host}, PORT: {port}")
+    elif not aws_key_id or not aws_secret:
+        print(f"AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required.")
     else:
         try:
             asyncio.run(main(host, port, health_port, enable_mcp, enable_strands))

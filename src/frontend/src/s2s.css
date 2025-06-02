@@ -19,8 +19,8 @@
 }
 .s2s .meter {
     position: absolute;
-    top: 20px;
-    right: 300px;
+    left: 700px;
+    margin-top: -15px;
 }
 .s2s .top .setting {
     position: absolute;

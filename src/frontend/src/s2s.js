@@ -29,7 +29,7 @@ class S2sChatBot extends React.Component {
             textContentName: null,
             audioContentName: null,
 
-            showUsage: false,
+            showUsage: true,
 
             // S2S config items
             configAudioInput: null,
@@ -231,6 +231,7 @@ class S2sChatBot extends React.Component {
             // End session
             this.endSession();
             this.cancelAudio();
+            if (this.meterRef.current) this.meterRef.current.stop();
         }
         else {
             // Start session
@@ -239,7 +240,7 @@ class S2sChatBot extends React.Component {
                 events: [], 
             });
             if (this.eventDisplayRef.current) this.eventDisplayRef.current.cleanup();
-            if (this.meterRef.current) this.meterRef.current.cleanup();
+            if (this.meterRef.current) this.meterRef.current.start();
             
             // Init S2sSessionManager
             try {
@@ -269,7 +270,8 @@ class S2sChatBot extends React.Component {
                 audioContentName: audioContentName
             })
 
-            this.socket = new WebSocket(process.env.REACT_APP_WEBSOCKET_URL);
+            const ws_url = process.env.REACT_APP_WEBSOCKET_URL?process.env.REACT_APP_WEBSOCKET_URL:"ws://localhost:8081"
+            this.socket = new WebSocket(ws_url);
             this.socket.onopen = () => {
                 console.log("WebSocket connected!");
     

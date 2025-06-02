@@ -97,7 +97,7 @@ cd nova-s2s-workshop
     export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET"
     export AWS_DEFAULT_REGION="us-east-1"
     ```
-    The WebSocket host and port must be specified:
+    The WebSocket host and port are optional. If not specified, the application will default to `localhost` and port `8081`.
     ```bash
     export HOST="localhost"
     export WS_PORT=8081
@@ -124,11 +124,10 @@ cd nova-s2s-workshop
     npm install
     ```
 
-3. Set up environment variables for the REACT app.
+3. This step is optional: set environment variables for the React app. If not provided, the application defaults to `ws://localhost:8081`.
 
-    If you've started the WebSocket from the previous step, set REACT_APP_WEBSOCKET_URL to ws://localhost:8081
     ```bash
-    export REACT_APP_WEBSOCKET_URL='ws://localhost:8081'
+    export REACT_APP_WEBSOCKET_URL='YOUR_WEB_SOCKET_URL'
     ```
 
 4. If you want to run the React code outside the workshop environment, update the `homepage` value in the `react-client/package.json` file from "/proxy/3000/" to "."

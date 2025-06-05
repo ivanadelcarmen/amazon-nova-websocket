@@ -137,6 +137,9 @@ cd nova-s2s-workshop
     npm start
     ```
 
+When using Chrome, if there’s no sound, please ensure the sound setting is set to Allow, as shown below.
+![chrome-sound](./static/chrome-sound-setting.png)
+
 ⚠️ **Warning:** Known issue: This UI is intended for demonstration purposes and may encounter state management issues after frequent conversation start/stop actions. Refreshing the page can help resolve the issue.
 
 ## Repeatable patterns

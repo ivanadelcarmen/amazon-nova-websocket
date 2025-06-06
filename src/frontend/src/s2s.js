@@ -29,7 +29,7 @@ class S2sChatBot extends React.Component {
             textContentName: null,
             audioContentName: null,
 
-            showUsage: false,
+            showUsage: true,
 
             // S2S config items
             configAudioInput: null,
@@ -42,8 +42,6 @@ class S2sChatBot extends React.Component {
         this.socket = null;
         this.mediaRecorder = null;
         this.chatMessagesEndRef = React.createRef();
-        this.audioPlayerRef = createRef();
-        this.audioQueue = [];
         this.stateRef = React.createRef();  
         this.eventDisplayRef = React.createRef();
         this.meterRef =React.createRef();
@@ -83,40 +81,6 @@ class S2sChatBot extends React.Component {
     cancelAudio() {
         this.audioPlayer.bargeIn();
         this.setState({ isPlaying: false });
-    }
-
-    audioEnqueue(audioUrl) {
-        this.audioQueue.push(audioUrl);
-        if (!this.state.isPlaying) {
-            this.playNext();
-        }
-    }
-
-    playNext() {
-        try {
-            if (this.isPlaying || this.audioQueue.length === 0) return;
-            if (this.audioPlayerRef.current && this.audioQueue.length > 0) {
-                let audioUrl = this.audioQueue.shift();
-                this.setState({ isPlaying: true });
-                try {
-                    this.audioPlayerRef.current.src = audioUrl;
-                    this.audioPlayerRef.current.load();  // Reload the audio element to apply the new src
-                    this.setState({ audioPlayPromise: this.audioPlayerRef.current.play() });
-                }
-                catch (err) {
-                    console.log(err);
-                }
-
-                // Wait for the audio to finish, then play the next one
-                this.audioPlayerRef.current.onended = () => {
-                    this.setState({ isPlaying: false });
-                    this.playNext();
-                };
-            }
-        }
-        catch (error) {
-            console.log(error);
-        }
     }
 
     handleIncomingMessage (message) {
@@ -206,6 +170,7 @@ class S2sChatBot extends React.Component {
             this.endSession();
             this.cancelAudio();
             if (this.meterRef.current) this.meterRef.current.stop();
+            this.audioPlayer.start(); 
         }
         else {
             // Start session

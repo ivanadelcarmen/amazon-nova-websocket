@@ -505,6 +505,8 @@ class S2sChatBot extends React.Component {
                                     { label: "Matthew (en-US)", value: "matthew" },
                                     { label: "Tiffany (en-US)", value: "tiffany" },
                                     { label: "Amy (en-GB)", value: "amy" },
+                                    { label: "Lupe (Spanish)", value: "lupe"},
+                                    { label: "Carlos (Spanish)", value: "carlos"},
                                 ]}
                                 />
                         </FormField>

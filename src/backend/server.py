@@ -97,6 +97,10 @@ def start_health_check_server(health_host, health_port):
 
 
 async def websocket_handler(websocket):
+    aws_region = os.getenv("AWS_DEFAULT_REGION")
+    if not aws_region:
+        aws_region = "us-east-1"
+
     stream_manager = None
     try:
         async for message in websocket:
@@ -109,7 +113,7 @@ async def websocket_handler(websocket):
 
                         """Handle WebSocket connections from the frontend."""
                         # Create a new stream manager for this connection
-                        stream_manager = S2sSessionManager(model_id='amazon.nova-sonic-v1:0', region='us-east-1', mcp_client=MCP_CLIENT, strands_agent=STRANDS_AGENT)
+                        stream_manager = S2sSessionManager(model_id='amazon.nova-sonic-v1:0', region=aws_region, mcp_client=MCP_CLIENT, strands_agent=STRANDS_AGENT)
                         
                         # Initialize the Bedrock stream
                         await stream_manager.initialize_stream()

@@ -502,9 +502,15 @@ class S2sChatBot extends React.Component {
                                     this.setState({configVoiceIdOption: detail.selectedOption})
                                 }
                                 options={[
-                                    { label: "Matthew (en-US)", value: "matthew" },
-                                    { label: "Tiffany (en-US)", value: "tiffany" },
-                                    { label: "Amy (en-GB)", value: "amy" },
+                                    { label: "Matthew (English US)", value: "matthew" },
+                                    { label: "Tiffany (English US)", value: "tiffany" },
+                                    { label: "Amy (English GB)", value: "amy" },
+                                    { label: "Ambre (French)", value: "ambre" },
+                                    { label: "Florian (French)", value: "florian" },
+                                    { label: "Beatrice (Italian)", value: "beatrice" },
+                                    { label: "Lorenzo (Italian)", value: "lorenzo" },
+                                    { label: "Greta (German)", value: "greta" },
+                                    { label: "Lennart (German)", value: "lennart" },
                                     { label: "Lupe (Spanish)", value: "lupe"},
                                     { label: "Carlos (Spanish)", value: "carlos"},
                                 ]}

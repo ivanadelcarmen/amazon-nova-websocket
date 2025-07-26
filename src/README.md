@@ -42,9 +42,22 @@ nova-s2s-workshop/
 │   │   └── s2s.js                              # Main entry point
 │   ├── setup-for-ec2-lab.sh                    # Bash script for environment setup – intended for instructor-led labs only. Do not use for local deployments.
 │   └── package.json                            # REACT manifest file
-└── scripts                                     
-    └── booking-resources.yaml                  # CloudFormation stack for Bedrock Agents sample deployment (optional)
-
+├── scripts                                     
+│   └── booking-resources.yaml                  # CloudFormation stack for Bedrock Agents sample deployment (optional)
+└── livekit
+    └── ui/                                     # A sample LiveKit UI application in REACT
+    │   ├── public/
+    │   │   └── index.html                      # Website home page
+    │   ├── src/
+    │   │   ├── App.css                         # Stylesheet
+    │   │   ├── App.js                          # LiveKit UI components
+    │   │   ├── index.css                       # Stylesheet
+    │   │   └── index.js                        # Main entry point
+    │   ├── setup-for-ec2-lab.sh                # Bash script for environment setup – intended for instructor-led labs only. Do not use for local deployments.
+    │   └── package.json                        # REACT manifest file
+    ├── agent.py                                # Sample LiveKit Sonic agent
+    ├── agent-tool.py                           # Sample LiveKit Sonic agent with tool definition
+    └── launch-livekit-server.sh                # Bash script for LiveKit server installation and launching
 ```
 
 ### Prerequisites

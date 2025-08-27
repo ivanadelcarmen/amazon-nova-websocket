@@ -2,29 +2,21 @@ import boto3
 import json
 import os
 
-bank_agent_arn = os.environ.get("AGENT_CORE_RUNTIME_ARN_BANKING_AGENT")
-mortgage_agent_arn = os.environ.get("AGENT_CORE_RUNTIME_ARN_MORTGAGE_AGENT")
-if not bank_agent_arn or not mortgage_agent_arn:
+ARNS = {}
+if len(ARNS.keys()) == 0:
     # Get AgentCore Runtime ARNS
     agentcore_control = boto3.client('bedrock-agentcore-control')
     rt_response= agentcore_control.list_agent_runtimes()
     for rt in rt_response["agentRuntimes"]:
-        if rt["agentRuntimeName"] == "sonic_workshop_banking_agent":
-            bank_agent_arn = rt["agentRuntimeArn"]
-            os.environ["AGENT_CORE_RUNTIME_ARN_BANKING_AGENT"] = bank_agent_arn
-        elif rt["agentRuntimeName"] == "sonic_workshop_mortgage_agent":
-            mortgage_agent_arn = rt["agentRuntimeArn"]
-            os.environ["AGENT_CORE_RUNTIME_ARN_MORTGAGE_AGENT"] = mortgage_agent_arn
+        agent_rt_name = rt["agentRuntimeName"]
+        ARNS[agent_rt_name] = rt["agentRuntimeArn"]
 
-ARNS = {
-    "ac_bank_agent": bank_agent_arn,
-    "ac_mortgage_agent": mortgage_agent_arn
-}
-agentcore_client = boto3.client('bedrock-agentcore',region_name='us-east-1')
-
+region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+agentcore_client = boto3.client('bedrock-agentcore',region_name=region)
 
 def invoke_agent_core(tool_name, payload):
     try:
+        global ARNS
         arn = ARNS.get(tool_name.lower())
         if not arn:
             return {"result": "AgentCore runtime doesn't exist"}
@@ -36,6 +28,7 @@ def invoke_agent_core(tool_name, payload):
             qualifier="DEFAULT",
             payload=json.dumps(payload)
         )
+
         if "text/event-stream" in boto3_response.get("contentType", ""):
             content = []
             for line in boto3_response["response"].iter_lines(chunk_size=1):

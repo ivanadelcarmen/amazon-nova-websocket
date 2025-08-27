@@ -26,7 +26,11 @@ class S2sChatBot extends React.Component {
             audioPlayPromise: null,
             includeChatHistory: false,
 
-            selectedDemoProfileOption: {label: "Default", value: "Default"},
+            selectedDemoProfileOption: DemoProfiles?{
+                                label: DemoProfiles[0].name,
+                                value: DemoProfiles[0].name,
+                                description: DemoProfiles[0].description
+                            }:{},
 
             promptName: null,
             textContentName: null,
@@ -463,7 +467,8 @@ class S2sChatBot extends React.Component {
                             onChange={this.handleDemoProfileChange}
                             options={DemoProfiles?DemoProfiles.map(item => ({
                                 label: item.name,
-                                value: item.name
+                                value: item.name,
+                                description: item.description
                             })):[]}
                             />
                     </div>

@@ -38,7 +38,7 @@ const DemoProfiles = [
                     "name": "getLocationTool",
                     "description": "Search for places, addresses.",
                     "inputSchema": {
-                        "json": "{\"type\": \"object\", \"properties\": {\"tool\": {\"type\": \"string\", \"description\": \"The function name to search the location service. One of: search_places\"}, \"query\": {\"type\": \"string\", \"description\": \"The search query to find relevant information\"}}, \"required\": [\"query\"]}"
+                        "json": "{\"type\": \"object\", \"properties\": {\"tool\": {\"type\": \"string\", \"description\": \"The function name to search the location service. One of: search_places\"}, \"query\": {\"type\": \"string\", \"description\": \"The search query to find relevant information\"}}, \"required\": [\"tool\",\"query\"]}"
                     }
                 }}
             ]
@@ -55,7 +55,7 @@ const DemoProfiles = [
                     "name": "externalAgent",
                     "description": "Get weather information for specific locations.",
                     "inputSchema": {
-                    "json": "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The search query to find relevant information\"}},\"required\":[\"query\"]}"
+                    "json": "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The search query to find relevant information\"}},\"required\":[\"tool\",\"query\"]}"
                     }
                 }
             }
@@ -66,13 +66,20 @@ const DemoProfiles = [
         "name": "Bedrock Agents - booking",
         "description": "Simple demo profile with basic system prompt and toolUse like getDateTime",
         "voiceId": "matthew",
-        "systemPrompt": "You are a friend. The user and you will engage in a spoken dialog exchanging the transcripts of a natural real-time conversation. Keep your responses short, generally two or three sentences for chatty scenarios.",
+        "systemPrompt": `
+            You are a helpful virtual assistant that specializes in handling reservations.
+            Your goal is to guide the customer step by step to successfully make a reservation.
+            Always be polite, professional, and concise.
+            If information is missing, ask clarifying questions (e.g., date, time, number of people, special requests).
+            Once all details are collected, confirm the reservation back to the customer clearly.
+            If the customer asks for something outside reservations, politely redirect them back to the reservation process.
+        `,
         "toolConfig": {
             "tools": [
                 {
                     "toolSpec": {
                         "name": "getBookingDetails",
-                        "description": "Manage bookings and reservations: create, get, update, delete, list, or find bookings by customer name. For update_booking, you can update by booking_id or by customer_name. If booking_id is not provided, all bookings for the given customer_name will be updated.",
+                        "description": "Manage bookings and reservations: create, get, update, delete, list, or find bookings by customer name. For update_booking, you can update by booking_id or by customer_name.",
                         "inputSchema": {
                         "json": "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"The request about booking, reservation\"}},\"required\":[]}"
                         }
@@ -83,50 +90,41 @@ const DemoProfiles = [
     },
     {
         "name": "Customer Service - Finance",
-        "description": "",
+        "description": "A sample voice assistant for customer service, built with a multi-agent architecture.",
         "voiceId": "tiffany",
         "systemPrompt": `You are a helpful customer service assistant for a bank. Follow this structured flow in every interaction:
-                ## 1. Greeting
-                - Begin with a warm greeting.  
-                - Ask for the user’s name.  
-
-                ## 2. Personalization
-                - Once collected, use the customer’s name naturally throughout the conversation.  
-
-                ## 3. Inquiry Handling
-                - Ask user to provide their account Id for inquries. Do not ask again if they have already provided it.
-                - If the customer asks about banking related **account balance**, call the [ac_bank_agent] tool.  
-                - If the customer asks a **mortgage-related question**, call the [ac_mortgage_agent] tool. 
-                - Do not ask for account Id if user has already provided it. 
-                - Do not repeat the ID user provided.
-                - For IDs in the format of 123 generate as one two three 
-
-                ## 4. Important notice
-                - If the user asks a question unrelated to banking or mortgages, respond with: 'Sorry, I’m unable to assist with that topic. I can help you with banking or mortgage-related inquiries.'
-                - Ask for the account ID only once. Do not repeatedly request it for different inquiries.
-
-                ---
-
-                # Example Interaction Flows
-
+                1. Greeting
+                    "Hello! Welcome to Any Bank. Could I please get your name to start?"
+                2. Personalization
+                    Use the user's name naturally in the conversation once obtained.
+                3. Inquiry Handling
+                    "Thank you, [User's Name]. How may I assist you today? I can help with banking and mortgage-related inquiries."
+                    If the user hasn't provided their account ID yet and asks about their account balance or mortgage, prompt: "To proceed, could you please provide your account ID?"
+                    Convert numeric IDs to words (e.g., 123 becomes "one two three").
+                    For banking inquiries, call [ac_bank_agent].
+                    For mortgage inquiries, call [ac_mortgage_agent].
+                    Do not re-ask for the account ID once it's been provided.
+                4. Important Notice
+                    If the user asks about non-banking or non-mortgage topics, respond: "Sorry, I can only help with banking or mortgage-related inquiries."
+                
+                ## Example Interaction Flows
                 ### Example 1: Account Balance Inquiry
-
-                **Assistant:** Hi! Welcome to Any Bank. May I have your name, please?  
-                **User:** I’m Alex.  
-                **Assistant:** Thank you, Alex! How can I help you today?  
-                **User:** Can you check my balance?  
-                **Assistant:** Sure, Alex. I’ll connect you to our banking services to get that information. 
-                **Assistant:** May I have your account Id please?
-                **User:** My ID is one two three four five.
+                Assistant: Hello! Welcome to Any Bank. Could I please get your name to start?
+                User: My name is Jamie.
+                Assistant: Thank you, Jamie. How may I assist you today?
+                User: I need to check my account balance.
+                Assistant: To proceed, could you please provide your account ID?
+                User: It's 123.
+                Assistant: Thank you. Please hold on while I retrieve your account balance.
                 call [ac_bank_agent]
-                **Assistant:** You have a current balance of USD 1600.00 and pending transactions of USD 56.25.
-
-                ---
+                Assistant: Jamie, your current balance is USD 1600.00 with pending transactions of USD 56.25.
 
                 ### Example 2: Mortgage Inquiry
-                **User:** I want to know about mortgage refinancing options.  
-                **Assistant:** Absolutely, Sarah. I’ll connect you to our mortgage services to get that information.  
-                call [ac_mortgage_agent]
+                Assistant: Hello! Welcome to Any Bank. Could I please get your name to start?
+                User: I'm Sarah.
+                Assistant: Thank you, Sarah. How may I assist you today?
+                User: Can you tell me about mortgage refinancing options?
+                Assistant: Absolutely, Sarah, here are your mortgage refinance options: Your current mortgage balance is $245,000 with an interest rate of 4.85% and a monthly payment. 
             `,
         "toolConfig": {
             "tools": [

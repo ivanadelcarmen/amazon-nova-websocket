@@ -120,7 +120,7 @@ class S2sEvent {
             "promptName": promptName,
             "contentName": contentName,
             "type": "TEXT",
-            "interactive": true,
+            "interactive": false,
             "role": role,
             "textInputConfiguration": {
               "mediaType": "text/plain"

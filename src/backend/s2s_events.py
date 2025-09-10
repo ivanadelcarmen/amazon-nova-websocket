@@ -166,7 +166,7 @@ class S2sEvent:
           "promptName":prompt_name,
           "contentName":content_name,
           "type":"TEXT",
-          "interactive":True,
+          "interactive":False,
           "role": "SYSTEM",
           "textInputConfiguration":{
             "mediaType":"text/plain"

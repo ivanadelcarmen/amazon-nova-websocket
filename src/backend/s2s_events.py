@@ -38,7 +38,6 @@ class S2sEvent:
                       "description": "get information about the current day",
                       "inputSchema": {
                           "json": '''{
-                            "$schema": "http://json-schema.org/draft-07/schema#",
                             "type": "object",
                             "properties": {},
                             "required": []
@@ -52,7 +51,6 @@ class S2sEvent:
                       "description": "Access location services like finding places, getting place details, and geocoding. Use with tool names: search_places, get_place, search_nearby, reverse_geocode",
                       "inputSchema": {
                           "json": '''{
-                            "$schema": "http://json-schema.org/draft-07/schema#",
                             "type": "object",
                             "properties": {
                                 "argName1": {
@@ -71,7 +69,6 @@ class S2sEvent:
                       "description": "Get booking details by booking ID or manage bookings",
                       "inputSchema": {
                           "json": '''{
-                            "$schema": "http://json-schema.org/draft-07/schema#",
                             "type": "object",
                             "properties": {
                                 "operation": {
@@ -119,7 +116,7 @@ class S2sEvent:
                 "name": "locationMcpTool",
                 "description": "Access location services like finding places, getting place details, and geocoding. Use with tool names: search_places, get_place, search_nearby, reverse_geocode",
                 "inputSchema": {
-                    "json": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"type\":\"object\",\"properties\":{\"argName1\":{\"type\":\"string\",\"description\":\"JSON string containing 'tool' (one of: search_places, get_place, search_nearby, reverse_geocode) and 'params' (the parameters for the tool)\"}},\"required\":[\"argName1\"]}"
+                    "json": "{\"type\":\"object\",\"properties\":{\"argName1\":{\"type\":\"string\",\"description\":\"JSON string containing 'tool' (one of: search_places, get_place, search_nearby, reverse_geocode) and 'params' (the parameters for the tool)\"}},\"required\":[\"argName1\"]}"
                 }
             }
         },
@@ -128,7 +125,7 @@ class S2sEvent:
                 "name": "getBookingDetails",
                 "description": "Get booking details by booking ID or manage bookings",
                 "inputSchema": {
-                    "json": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"description\":\"The operation to perform (get_booking, create_booking, update_booking, delete_booking, list_bookings)\",\"enum\":[\"get_booking\",\"create_booking\",\"update_booking\",\"delete_booking\",\"list_bookings\"]},\"booking_id\":{\"type\":\"string\",\"description\":\"The ID of the booking to retrieve, update, or delete\"},\"booking_details\":{\"type\":\"object\",\"description\":\"The booking details to create\"},\"update_data\":{\"type\":\"object\",\"description\":\"The data to update for a booking\"},\"limit\":{\"type\":\"integer\",\"description\":\"The maximum number of bookings to return when listing\"}},\"required\":[\"operation\"]}"
+                    "json": "{\"type\":\"object\",\"properties\":{\"operation\":{\"type\":\"string\",\"description\":\"The operation to perform (get_booking, create_booking, update_booking, delete_booking, list_bookings)\",\"enum\":[\"get_booking\",\"create_booking\",\"update_booking\",\"delete_booking\",\"list_bookings\"]},\"booking_id\":{\"type\":\"string\",\"description\":\"The ID of the booking to retrieve, update, or delete\"},\"booking_details\":{\"type\":\"object\",\"description\":\"The booking details to create\"},\"update_data\":{\"type\":\"object\",\"description\":\"The data to update for a booking\"},\"limit\":{\"type\":\"integer\",\"description\":\"The maximum number of bookings to return when listing\"}},\"required\":[\"operation\"]}"
                 }
             }
         }

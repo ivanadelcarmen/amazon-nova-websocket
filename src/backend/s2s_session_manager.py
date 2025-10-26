@@ -58,6 +58,31 @@ class S2sSessionManager:
         )
         self.bedrock_client = BedrockRuntimeClient(config=config)
 
+    def reset_session_state(self):
+        """Reset session state for a new session."""
+        # Clear queues
+        while not self.audio_input_queue.empty():
+            try:
+                self.audio_input_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        
+        while not self.output_queue.empty():
+            try:
+                self.output_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        
+        # Reset tool use state
+        self.toolUseContent = ""
+        self.toolUseId = ""
+        self.toolName = ""
+        
+        # Reset session information
+        self.prompt_name = None
+        self.content_name = None
+        self.audio_content_name = None
+
     async def initialize_stream(self):
         """Initialize the bidirectional stream with Bedrock."""
         try:
@@ -189,6 +214,11 @@ class S2sSessionManager:
                             tool_start_event = S2sEvent.content_start_tool(prompt_name, toolContent, self.toolUseId)
                             await self.send_raw_event(tool_start_event)
                             
+                            # Also send tool start event to WebSocket client
+                            tool_start_event_copy = tool_start_event.copy()
+                            tool_start_event_copy["timestamp"] = int(time.time() * 1000)
+                            await self.output_queue.put(tool_start_event_copy)
+                            
                             # Send tool result event
                             if isinstance(toolResult, dict):
                                 content_json_string = json.dumps(toolResult)
@@ -198,10 +228,20 @@ class S2sSessionManager:
                             tool_result_event = S2sEvent.text_input_tool(prompt_name, toolContent, content_json_string)
                             print("Tool result", tool_result_event)
                             await self.send_raw_event(tool_result_event)
+                            
+                            # Also send tool result event to WebSocket client
+                            tool_result_event_copy = tool_result_event.copy()
+                            tool_result_event_copy["timestamp"] = int(time.time() * 1000)
+                            await self.output_queue.put(tool_result_event_copy)
 
                             # Send tool content end event
                             tool_content_end_event = S2sEvent.content_end(prompt_name, toolContent)
                             await self.send_raw_event(tool_content_end_event)
+                            
+                            # Also send tool content end event to WebSocket client
+                            tool_content_end_event_copy = tool_content_end_event.copy()
+                            tool_content_end_event_copy["timestamp"] = int(time.time() * 1000)
+                            await self.output_queue.put(tool_content_end_event_copy)
                     
                     # Put the response in the output queue for forwarding to the frontend
                     await self.output_queue.put(json_data)
@@ -298,8 +338,35 @@ class S2sSessionManager:
             
         self.is_active = False
         
+        # Clear audio queue to prevent processing old audio data
+        while not self.audio_input_queue.empty():
+            try:
+                self.audio_input_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        
+        # Clear output queue
+        while not self.output_queue.empty():
+            try:
+                self.output_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        
+        # Reset tool use state
+        self.toolUseContent = ""
+        self.toolUseId = ""
+        self.toolName = ""
+        
+        # Reset session information
+        self.prompt_name = None
+        self.content_name = None
+        self.audio_content_name = None
+        
         if self.stream:
-            await self.stream.input_stream.close()
+            try:
+                await self.stream.input_stream.close()
+            except Exception as e:
+                debug_print(f"Error closing stream: {e}")
         
         if self.response_task and not self.response_task.done():
             self.response_task.cancel()
@@ -307,4 +374,8 @@ class S2sSessionManager:
                 await self.response_task
             except asyncio.CancelledError:
                 pass
+        
+        # Set stream to None to ensure it's properly cleaned up
+        self.stream = None
+        self.response_task = None
         

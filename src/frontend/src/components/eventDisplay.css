@@ -150,7 +150,7 @@
     width: 60%;
     margin: 5px;
 }
-.s2s .events .event-tool {
+.s2s .events .event-tool-use {
     position: relative;
     display: inline-block;
     padding: 10px;
@@ -163,6 +163,20 @@
     margin: 5px;
     font-weight: bold;
     float: right;
+}
+.s2s .events .event-tool-result {
+    position: relative;
+    display: inline-block;
+    padding: 10px;
+    background-color: #ee6927; 
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 10px;
+    width: 60%;
+    margin: 5px;
+    font-weight: bold;
+    float: left;
 }
 .s2s .events .event-int {
     position: relative;

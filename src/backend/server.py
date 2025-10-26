@@ -102,6 +102,8 @@ async def websocket_handler(websocket):
         aws_region = "us-east-1"
 
     stream_manager = None
+    forward_task = None
+    
     try:
         async for message in websocket:
             try:
@@ -109,7 +111,19 @@ async def websocket_handler(websocket):
                 if 'body' in data:
                     data = json.loads(data["body"])
                 if 'event' in data:
-                    if stream_manager == None:
+                    event_type = list(data['event'].keys())[0]
+                    
+                    # Handle session start - create new stream manager
+                    if event_type == 'sessionStart':
+                        # Clean up existing session if any
+                        if stream_manager:
+                            await stream_manager.close()
+                        if forward_task and not forward_task.done():
+                            forward_task.cancel()
+                            try:
+                                await forward_task
+                            except asyncio.CancelledError:
+                                pass
 
                         """Handle WebSocket connections from the frontend."""
                         # Create a new stream manager for this connection
@@ -121,13 +135,26 @@ async def websocket_handler(websocket):
                         # Start a task to forward responses from Bedrock to the WebSocket
                         forward_task = asyncio.create_task(forward_responses(websocket, stream_manager))
 
-                        event_type = list(data['event'].keys())[0]
-                        if event_type == "audioInput":
-                            debug_print(message[0:180])
-                        else:
-                            debug_print(message)
-                            
-                    if event_type:
+                    # Handle session end - clean up resources
+                    elif event_type == 'sessionEnd':
+                        if stream_manager:
+                            await stream_manager.close()
+                            stream_manager = None
+                        if forward_task and not forward_task.done():
+                            forward_task.cancel()
+                            try:
+                                await forward_task
+                            except asyncio.CancelledError:
+                                pass
+                            forward_task = None
+
+                    if event_type == "audioInput":
+                        debug_print(message[0:180])
+                    else:
+                        debug_print(message)
+                    
+                    # Only process events if we have an active stream manager
+                    if stream_manager and stream_manager.is_active:
                         # Store prompt name and content names if provided
                         if event_type == 'promptStart':
                             stream_manager.prompt_name = data['event']['promptStart']['promptName']
@@ -146,6 +173,9 @@ async def websocket_handler(websocket):
                         else:
                             # Send other events directly to Bedrock
                             await stream_manager.send_raw_event(data)
+                    elif event_type not in ['sessionStart', 'sessionEnd']:
+                        debug_print(f"Received event {event_type} but no active stream manager")
+                        
             except json.JSONDecodeError:
                 print("Invalid JSON received from WebSocket")
             except Exception as e:
@@ -156,11 +186,15 @@ async def websocket_handler(websocket):
     except websockets.exceptions.ConnectionClosed:
         print("WebSocket connection closed")
     finally:
-        # Clean up
-        await stream_manager.close()
-        forward_task.cancel()
-        if websocket:
-            websocket.close()
+        # Clean up resources
+        if stream_manager:
+            await stream_manager.close()
+        if forward_task and not forward_task.done():
+            forward_task.cancel()
+            try:
+                await forward_task
+            except asyncio.CancelledError:
+                pass
         if MCP_CLIENT:
             MCP_CLIENT.cleanup()
 

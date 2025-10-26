@@ -7,7 +7,7 @@ region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 ARNS = {}
 if len(ARNS.keys()) == 0:
     # Get AgentCore Runtime ARNS
-    agentcore_control = boto3.client('bedrock-agentcore-control',region)
+    agentcore_control = boto3.client('bedrock-agentcore-control', region)
     rt_response= agentcore_control.list_agent_runtimes()
     for rt in rt_response["agentRuntimes"]:
         agent_rt_name = rt["agentRuntimeName"]

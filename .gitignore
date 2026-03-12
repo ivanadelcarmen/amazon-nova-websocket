@@ -2,6 +2,7 @@ output
 .DS_Store
 .ipynb_checkpoints
 .venv
+venv
 __pycache__
 .local_data
 node_modules

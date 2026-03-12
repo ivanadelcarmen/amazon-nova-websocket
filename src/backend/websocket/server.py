@@ -9,7 +9,6 @@ import http.server
 import threading
 import os
 from http import HTTPStatus
-from integration.mcp_client import McpLocationClient
 from integration.strands_agent import StrandsAgent
 
 # Configure logging
@@ -27,7 +26,6 @@ def debug_print(message):
     if DEBUG:
         print(message)
 
-MCP_CLIENT = None
 STRANDS_AGENT = None
 
 class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
@@ -127,7 +125,7 @@ async def websocket_handler(websocket):
 
                         """Handle WebSocket connections from the frontend."""
                         # Create a new stream manager for this connection
-                        stream_manager = S2sSessionManager(model_id='amazon.nova-sonic-v1:0', region=aws_region, mcp_client=MCP_CLIENT, strands_agent=STRANDS_AGENT)
+                        stream_manager = S2sSessionManager(model_id='amazon.nova-sonic-v1:0', region=aws_region, strands_agent=STRANDS_AGENT)
                         
                         # Initialize the Bedrock stream
                         await stream_manager.initialize_stream()
@@ -195,8 +193,6 @@ async def websocket_handler(websocket):
                 await forward_task
             except asyncio.CancelledError:
                 pass
-        if MCP_CLIENT:
-            MCP_CLIENT.cleanup()
 
 
 async def forward_responses(websocket, stream_manager):
@@ -229,16 +225,6 @@ async def main(host, port, health_port, enable_mcp=False, enable_strands_agent=F
             start_health_check_server(host, health_port)
         except Exception as ex:
             print("Failed to start health check endpoint",ex)
-    
-    # Init MCP client
-    if enable_mcp:
-        print("MCP enabled")
-        try:
-            global MCP_CLIENT
-            MCP_CLIENT = McpLocationClient()
-            await MCP_CLIENT.connect_to_server()
-        except Exception as ex:
-            print("Failed to start MCP client",ex)
     
     # Init Strands Agent
     if enable_strands_agent:
@@ -294,6 +280,3 @@ if __name__ == "__main__":
             if args.debug:
                 import traceback
                 traceback.print_exc()
-        finally:
-            if MCP_CLIENT:
-                MCP_CLIENT.cleanup()

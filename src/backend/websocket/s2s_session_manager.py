@@ -1,20 +1,24 @@
 import asyncio
 import json
-import base64
 import warnings
 import uuid
-from s2s_events import S2sEvent
 import time
+import traceback
+
 from aws_sdk_bedrock_runtime.client import BedrockRuntimeClient, InvokeModelWithBidirectionalStreamOperationInput
 from aws_sdk_bedrock_runtime.models import InvokeModelWithBidirectionalStreamInputChunk, BidirectionalInputPayloadPart
 from aws_sdk_bedrock_runtime.config import Config
-from smithy_aws_core.identity.environment import EnvironmentCredentialsResolver
-from integration import inline_agent, bedrock_knowledge_bases as kb, agent_core
+from smithy_aws_core.identity import EnvironmentCredentialsResolver
+from smithy_core.aio.identity import ChainedIdentityResolver
+from smithy_http.aio.crt import AWSCRTHTTPClient
+
+from s2s_events import S2sEvent
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
 DEBUG = False
+
 
 def debug_print(message):
     """Print only if debug mode is enabled"""
@@ -25,7 +29,7 @@ def debug_print(message):
 class S2sSessionManager:
     """Manages bidirectional streaming with AWS Bedrock using asyncio"""
     
-    def __init__(self, region, model_id='amazon.nova-sonic-v1:0', mcp_client=None, strands_agent=None):
+    def __init__(self, region, model_id='amazon.nova-sonic-v1:0', strands_agent=None):
         """Initialize the stream manager."""
         self.model_id = model_id
         self.region = region
@@ -46,15 +50,21 @@ class S2sSessionManager:
         self.toolUseContent = ""
         self.toolUseId = ""
         self.toolName = ""
-        self.mcp_loc_client = mcp_client
         self.strands_agent = strands_agent
 
     def _initialize_client(self):
-        """Initialize the Bedrock client."""
+        """Initialize the Bedrock client with SigV4 authentication"""
+        # Create credential chain through environment variables
+        credential_resolver = ChainedIdentityResolver(
+            resolvers=(
+                EnvironmentCredentialsResolver()
+            )
+        )
+        
         config = Config(
             endpoint_uri=f"https://bedrock-runtime.{self.region}.amazonaws.com",
             region=self.region,
-            aws_credentials_identity_resolver=EnvironmentCredentialsResolver(),
+            aws_credentials_identity_resolver=credential_resolver,
         )
         self.bedrock_client = BedrockRuntimeClient(config=config)
 
@@ -88,15 +98,20 @@ class S2sSessionManager:
         try:
             if not self.bedrock_client:
                 self._initialize_client()
-        except Exception as ex:
+
+        except Exception as e:
             self.is_active = False
             print(f"Failed to initialize Bedrock client: {str(e)}")
+            traceback.print_exc()
             raise
 
         try:
-            # Initialize the stream
-            self.stream = await self.bedrock_client.invoke_model_with_bidirectional_stream(
-                InvokeModelWithBidirectionalStreamOperationInput(model_id=self.model_id)
+            # Initialize the stream with a 10 second timeout
+            self.stream = await asyncio.wait_for(
+                self.bedrock_client.invoke_model_with_bidirectional_stream(
+                    InvokeModelWithBidirectionalStreamOperationInput(model_id=self.model_id)
+                ),
+                timeout=10
             )
             self.is_active = True
             
@@ -109,11 +124,20 @@ class S2sSessionManager:
             # Wait a bit to ensure everything is set up
             await asyncio.sleep(0.1)
             
-            debug_print("Stream initialized successfully")
             return self
+        
+        except asyncio.TimeoutError:
+            self.is_active = False
+            print(f"TIMEOUT: Bedrock API did not respond within 10 seconds")
+            print(f"Model: {self.model_id}")
+            print(f"Region: {self.region}")
+            traceback.print_exc()
+            raise
+
         except Exception as e:
             self.is_active = False
             print(f"Failed to initialize stream: {str(e)}")
+            traceback.print_exc()
             raise
     
     async def send_raw_event(self, event_data):
@@ -246,21 +270,34 @@ class S2sSessionManager:
                     # Put the response in the output queue for forwarding to the frontend
                     await self.output_queue.put(json_data)
 
-
             except json.JSONDecodeError as ex:
-                print(ex)
+                print(f"JSON decode error: {ex}")
                 await self.output_queue.put({"raw_data": response_data})
-            except StopAsyncIteration as ex:
-                # Stream has ended
-                print(ex)
+
+            except StopAsyncIteration:
+                # Stream has ended normally
+                print("Stream ended")
+                break
+
             except Exception as e:
                 # Handle ValidationException properly
                 if "ValidationException" in str(e):
                     error_message = str(e)
                     print(f"Validation error: {error_message}")
+
+                    # Don't break on validation errors, just log them
+                    await self.output_queue.put({"error": "validation_error", "message": error_message})
+
+                elif "InvalidStateError" in str(e) or "CANCELLED" in str(e):
+                    # HTTP client cancellation - log but don't break
+                    print(f"HTTP client state error (can be ignored): {e}")
+                    
                 else:
                     print(f"Error receiving response: {e}")
-                break
+                    import traceback
+                    traceback.print_exc()
+                    # Only break on serious errors
+                    break
 
         self.is_active = False
         self.close()
@@ -277,58 +314,20 @@ class S2sSessionManager:
                 query_json = json.loads(toolUseContent.get("content"))
                 content = toolUseContent.get("content")  # Pass the JSON string directly to the agent
                 print(f"Extracted query: {content}")
-            
-            # AgentCore integration
-            if toolName.startswith("ac_"):
-                result = agent_core.invoke_agent_core(toolName, content)
 
             # Simple toolUse to get system time in UTC
             if toolName == "getdatetool":
                 from datetime import datetime, timezone
                 result = datetime.now(timezone.utc).strftime('%A, %Y-%m-%d %H-%M-%S')
 
-            # Bedrock Knowledge Bases (RAG)
-            if toolName == "getkbtool":
-                result = kb.retrieve_kb(content)
-
-            # MCP integration - location search                        
-            if toolName == "getlocationtool":
-                if self.mcp_loc_client:
-                    result = await self.mcp_loc_client.call_tool(content)
-            
-            # Strands Agent integration - weather questions
-            if toolName == "externalagent":
-                if self.strands_agent:
-                    result = self.strands_agent.query(content)
-
-            # Bedrock Agents integration - Bookings
-            if toolName == "getbookingdetails":
-                try:
-                    # Pass the tool use content (JSON string) directly to the agent
-                    result = await inline_agent.invoke_agent(content)
-                    # Try to parse and format if needed
-                    try:
-                        booking_json = json.loads(result)
-                        if "bookings" in booking_json:
-                            result = await inline_agent.invoke_agent(
-                                f"Format this booking information for the user: {result}"
-                            )
-                    except Exception:
-                        pass  # Not JSON, just return as is
-                    
-                except json.JSONDecodeError as e:
-                    print(f"JSON decode error: {str(e)}")
-                    return {"result": f"Invalid JSON format for booking details: {str(e)}"}
-                except Exception as e:
-                    print(f"Error processing booking details: {str(e)}")
-                    return {"result": f"Error processing booking details: {str(e)}"}
-
             if not result:
                 result = "no result found"
 
             return {"result": result}
+            
         except Exception as ex:
-            print(ex)
+            print(f"Exception in processToolUse: {ex}")
+            traceback.print_exc()
             return {"result": "An error occurred while attempting to retrieve information related to the toolUse event."}
     
     async def close(self):

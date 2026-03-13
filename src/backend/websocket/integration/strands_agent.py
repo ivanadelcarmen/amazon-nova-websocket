@@ -1,6 +1,4 @@
-from mcp import stdio_client, StdioServerParameters
 from strands import Agent, tool
-from strands.tools.mcp import MCPClient
 from strands.models import BedrockModel
 import boto3 
 import os
@@ -34,21 +32,6 @@ def weather(lat, lon: float) -> str:
 class StrandsAgent:
 
     def __init__(self):
-        # Launch AWS Location Service MCP Server and create a client object
-        aws_profile = os.getenv("AWS_PROFILE")
-        env = {"FASTMCP_LOG_LEVEL": "ERROR"}
-        if aws_profile:
-            env["AWS_PROFILE"] = aws_profile
-
-        self.aws_location_srv_client = MCPClient(lambda: stdio_client(
-            StdioServerParameters(
-                command="uvx", 
-                args=["awslabs.aws-location-mcp-server@latest"],
-                env=env)
-            ))
-        self._server_context = self.aws_location_srv_client.__enter__()
-        self.aws_location_srv_tools = self.aws_location_srv_client.list_tools_sync()
-
         session = boto3.Session(
             region_name=os.getenv("AWS_REGION", "us-east-1"),
         )
@@ -58,8 +41,7 @@ class StrandsAgent:
             boto_session=session
         )
         # Create a Strands Agent
-        tools = self.aws_location_srv_tools
-        tools.append(weather)
+        tools = [weather]
         self.agent = Agent(
             tools=tools, 
             model=bedrock_model,
@@ -100,7 +82,3 @@ class StrandsAgent:
 
         tool_func = getattr(self.agent.tool, tool_name)
         return tool_func(query=input)
-
-    def close(self):
-        # Cleanup the MCP server context
-        self.aws_location_srv_client.__exit__(None, None, None)

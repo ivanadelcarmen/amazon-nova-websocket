@@ -4,26 +4,20 @@ import warnings
 import uuid
 import time
 import traceback
+import logging
 
 from aws_sdk_bedrock_runtime.client import BedrockRuntimeClient, InvokeModelWithBidirectionalStreamOperationInput
 from aws_sdk_bedrock_runtime.models import InvokeModelWithBidirectionalStreamInputChunk, BidirectionalInputPayloadPart
 from aws_sdk_bedrock_runtime.config import Config
 from smithy_aws_core.identity import EnvironmentCredentialsResolver
-from smithy_core.aio.identity import ChainedIdentityResolver
-from smithy_http.aio.crt import AWSCRTHTTPClient
 
 from s2s_events import S2sEvent
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
-DEBUG = False
-
-
-def debug_print(message):
-    """Print only if debug mode is enabled"""
-    if DEBUG:
-        print(message)
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 
 class S2sSessionManager:
@@ -55,17 +49,12 @@ class S2sSessionManager:
     def _initialize_client(self):
         """Initialize the Bedrock client with SigV4 authentication"""
         # Create credential chain through environment variables
-        credential_resolver = ChainedIdentityResolver(
-            resolvers=(
-                EnvironmentCredentialsResolver()
-            )
-        )
-        
         config = Config(
             endpoint_uri=f"https://bedrock-runtime.{self.region}.amazonaws.com",
             region=self.region,
-            aws_credentials_identity_resolver=credential_resolver,
+            aws_credentials_identity_resolver=EnvironmentCredentialsResolver()
         )
+
         self.bedrock_client = BedrockRuntimeClient(config=config)
 
     def reset_session_state(self):
@@ -101,11 +90,11 @@ class S2sSessionManager:
 
         except Exception as e:
             self.is_active = False
-            print(f"Failed to initialize Bedrock client: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Failed to initialize Bedrock client: {str(e)}", exc_info=True)
             raise
 
         try:
+            logger.info(f"Initializing Bedrock stream with model: {self.model_id}, region: {self.region}")
             # Initialize the stream with a 10 second timeout
             self.stream = await asyncio.wait_for(
                 self.bedrock_client.invoke_model_with_bidirectional_stream(
@@ -114,6 +103,7 @@ class S2sSessionManager:
                 timeout=10
             )
             self.is_active = True
+            logger.info("Bedrock stream initialized successfully")
             
             # Start listening for responses
             self.response_task = asyncio.create_task(self._process_responses())
@@ -128,28 +118,27 @@ class S2sSessionManager:
         
         except asyncio.TimeoutError:
             self.is_active = False
-            print(f"TIMEOUT: Bedrock API did not respond within 10 seconds")
-            print(f"Model: {self.model_id}")
-            print(f"Region: {self.region}")
-            traceback.print_exc()
+            logger.error(f"TIMEOUT: Bedrock API did not respond within 10 seconds")
+            logger.error(f"Model: {self.model_id}")
+            logger.error(f"Region: {self.region}")
+            logger.debug("Timeout traceback:", exc_info=True)
             raise
 
         except Exception as e:
             self.is_active = False
-            print(f"Failed to initialize stream: {str(e)}")
-            traceback.print_exc()
+            logger.error(f"Failed to initialize stream: {str(e)}", exc_info=True)
             raise
     
     async def send_raw_event(self, event_data):
         try:
             """Send a raw event to the Bedrock stream."""
             if not self.stream or not self.is_active:
-                debug_print("Stream not initialized or closed")
+                logger.debug("Stream not initialized or closed")
                 return
             
             event_json = json.dumps(event_data)
             #if "audioInput" not in event_data["event"]:
-            #    print(event_json)
+            #    logger.debug(event_json)
             event = InvokeModelWithBidirectionalStreamInputChunk(
                 value=BidirectionalInputPayloadPart(bytes_=event_json.encode('utf-8'))
             )
@@ -160,7 +149,7 @@ class S2sSessionManager:
                 self.close()
             
         except Exception as e:
-            debug_print(f"Error sending event: {str(e)}")
+            logger.debug(f"Error sending event: {str(e)}")
     
     async def _process_audio_input(self):
         """Process audio input from the queue and send to Bedrock."""
@@ -175,7 +164,7 @@ class S2sSessionManager:
                 audio_bytes = data.get('audio_bytes')
                 
                 if not audio_bytes or not prompt_name or not content_name:
-                    debug_print("Missing required audio data properties")
+                    logger.debug("Missing required audio data properties")
                     continue
 
                 # Create the audio input event
@@ -187,10 +176,7 @@ class S2sSessionManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                debug_print(f"Error processing audio: {e}")
-                if DEBUG:
-                    import traceback
-                    traceback.print_exc()
+                logger.error(f"Error processing audio: {e}", exc_info=logger.isEnabledFor(logging.DEBUG))
     
     def add_audio_chunk(self, prompt_name, content_name, audio_data):
         """Add an audio chunk to the queue."""
@@ -218,19 +204,19 @@ class S2sSessionManager:
                     if 'event' in json_data:
                         event_name = list(json_data["event"].keys())[0]
                         # if event_name == "audioOutput":
-                        #     print(json_data)
+                        #     logger.debug(json_data)
                         
                         # Handle tool use detection
                         if event_name == 'toolUse':
                             self.toolUseContent = json_data['event']['toolUse']
                             self.toolName = json_data['event']['toolUse']['toolName']
                             self.toolUseId = json_data['event']['toolUse']['toolUseId']
-                            debug_print(f"Tool use detected: {self.toolName}, ID: {self.toolUseId}, "+ json.dumps(json_data['event']))
+                            logger.debug(f"Tool use detected: {self.toolName}, ID: {self.toolUseId}, {json.dumps(json_data['event'])}")
 
                         # Process tool use when content ends
                         elif event_name == 'contentEnd' and json_data['event'][event_name].get('type') == 'TOOL':
                             prompt_name = json_data['event']['contentEnd'].get("promptName")
-                            debug_print("Processing tool use and sending result")
+                            logger.debug("Processing tool use and sending result")
                             toolResult = await self.processToolUse(self.toolName, self.toolUseContent)
                                 
                             # Send tool start event
@@ -250,7 +236,7 @@ class S2sSessionManager:
                                 content_json_string = toolResult
 
                             tool_result_event = S2sEvent.text_input_tool(prompt_name, toolContent, content_json_string)
-                            print("Tool result", tool_result_event)
+                            logger.info(f"Tool result: {tool_result_event}")
                             await self.send_raw_event(tool_result_event)
                             
                             # Also send tool result event to WebSocket client
@@ -271,31 +257,29 @@ class S2sSessionManager:
                     await self.output_queue.put(json_data)
 
             except json.JSONDecodeError as ex:
-                print(f"JSON decode error: {ex}")
+                logger.error(f"JSON decode error: {ex}")
                 await self.output_queue.put({"raw_data": response_data})
 
             except StopAsyncIteration:
                 # Stream has ended normally
-                print("Stream ended")
+                logger.info("Stream ended")
                 break
 
             except Exception as e:
                 # Handle ValidationException properly
                 if "ValidationException" in str(e):
                     error_message = str(e)
-                    print(f"Validation error: {error_message}")
+                    logger.error(f"Validation error: {error_message}")
 
                     # Don't break on validation errors, just log them
                     await self.output_queue.put({"error": "validation_error", "message": error_message})
 
                 elif "InvalidStateError" in str(e) or "CANCELLED" in str(e):
                     # HTTP client cancellation - log but don't break
-                    print(f"HTTP client state error (can be ignored): {e}")
+                    logger.debug(f"HTTP client state error (can be ignored): {e}")
                     
                 else:
-                    print(f"Error receiving response: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.error(f"Error receiving response: {e}", exc_info=True)
                     # Only break on serious errors
                     break
 
@@ -304,7 +288,7 @@ class S2sSessionManager:
 
     async def processToolUse(self, toolName, toolUseContent):
         """Return the tool result"""
-        print(f"Tool Use Content: {toolUseContent}")
+        logger.info(f"Tool Use Content: {toolUseContent}")
 
         toolName = toolName.lower()
         content, result = None, None
@@ -313,7 +297,7 @@ class S2sSessionManager:
                 # Parse the JSON string in the content field
                 query_json = json.loads(toolUseContent.get("content"))
                 content = toolUseContent.get("content")  # Pass the JSON string directly to the agent
-                print(f"Extracted query: {content}")
+                logger.debug(f"Extracted query: {content}")
 
             # Simple toolUse to get system time in UTC
             if toolName == "getdatetool":
@@ -326,8 +310,7 @@ class S2sSessionManager:
             return {"result": result}
             
         except Exception as ex:
-            print(f"Exception in processToolUse: {ex}")
-            traceback.print_exc()
+            logger.error(f"Exception in processToolUse: {ex}", exc_info=True)
             return {"result": "An error occurred while attempting to retrieve information related to the toolUse event."}
     
     async def close(self):
@@ -336,6 +319,7 @@ class S2sSessionManager:
             return
             
         self.is_active = False
+        logger.info("Closing stream manager")
         
         # Clear audio queue to prevent processing old audio data
         while not self.audio_input_queue.empty():
@@ -365,7 +349,7 @@ class S2sSessionManager:
             try:
                 await self.stream.input_stream.close()
             except Exception as e:
-                debug_print(f"Error closing stream: {e}")
+                logger.debug(f"Error closing stream: {e}")
         
         if self.response_task and not self.response_task.done():
             self.response_task.cancel()
@@ -377,4 +361,5 @@ class S2sSessionManager:
         # Set stream to None to ensure it's properly cleaned up
         self.stream = None
         self.response_task = None
+        logger.info("Stream manager closed")
         

@@ -3,50 +3,42 @@ import websockets
 import json
 import logging
 import warnings
-from s2s_session_manager import S2sSessionManager
+import traceback
 import argparse
-import http.server
 import threading
 import os
-from http import HTTPStatus
-from integration.strands_agent import StrandsAgent
 
-# Configure logging
-LOGLEVEL = os.environ.get("LOGLEVEL", "INFO").upper()
-logging.basicConfig(level=LOGLEVEL, format="%(asctime)s %(message)s")
-logger = logging.getLogger(__name__)
+from http import HTTPStatus
+import http.server
+
+from s2s_session_manager import S2sSessionManager
+from integration.strands_agent import StrandsAgent
+from utils import setup_logging
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
-DEBUG = False
-
-def debug_print(message):
-    """Print only if debug mode is enabled"""
-    if DEBUG:
-        print(message)
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 STRANDS_AGENT = None
+
 
 class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         client_ip = self.client_address[0]
-        logger.info(
-            f"Health check request received from {client_ip} for path: {self.path}"
-        )
+        logger.info(f"Health check request received from {client_ip} for path: {self.path}")
 
         if self.path == "/health" or self.path == "/":
-            logger.info(f"Responding with 200 OK to health check from {client_ip}")
+            logger.debug(f"Responding with 200 OK to health check from {client_ip}")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             response = json.dumps({"status": "healthy"})
             self.wfile.write(response.encode("utf-8"))
-            logger.info(f"Health check response sent: {response}")
+            logger.debug(f"Health check response sent: {response}")
         else:
-            logger.info(
-                f"Responding with 404 Not Found to request for {self.path} from {client_ip}"
-            )
+            logger.warning(f"Responding with 404 Not Found to request for {self.path} from {client_ip}")
             self.send_response(HTTPStatus.NOT_FOUND)
             self.end_headers()
 
@@ -72,10 +64,8 @@ def start_health_check_server(health_host, health_port):
         thread.start()
 
         # Verify the server is running
-        logger.info(
-            f"Health check server started at http://{health_host}:{health_port}/health"
-        )
-        logger.info(f"Health check thread is alive: {thread.is_alive()}")
+        logger.info(f"Health check server started at http://{health_host}:{health_port}/health")
+        logger.debug(f"Health check thread is alive: {thread.is_alive()}")
 
         # Try to make a local request to verify the server is responding
         try:
@@ -84,9 +74,7 @@ def start_health_check_server(health_host, health_port):
             with urllib.request.urlopen(
                 f"http://localhost:{health_port}/health", timeout=2
             ) as response:
-                logger.info(
-                    f"Local health check test: {response.status} - {response.read().decode('utf-8')}"
-                )
+                logger.debug(f"Local health check test: {response.status} - {response.read().decode('utf-8')}")
         except Exception as e:
             logger.warning(f"Local health check test failed: {e}")
 
@@ -126,7 +114,7 @@ async def websocket_handler(websocket):
                         """Handle WebSocket connections from the frontend."""
                         # Create a new stream manager for this connection
                         stream_manager = S2sSessionManager(model_id='amazon.nova-sonic-v1:0', region=aws_region, strands_agent=STRANDS_AGENT)
-                        
+
                         # Initialize the Bedrock stream
                         await stream_manager.initialize_stream()
                         
@@ -147,9 +135,9 @@ async def websocket_handler(websocket):
                             forward_task = None
 
                     if event_type == "audioInput":
-                        debug_print(message[0:180])
+                        logger.debug(message[0:90])
                     else:
-                        debug_print(message)
+                        logger.debug(message)
                     
                     # Only process events if we have an active stream manager
                     if stream_manager and stream_manager.is_active:
@@ -172,17 +160,16 @@ async def websocket_handler(websocket):
                             # Send other events directly to Bedrock
                             await stream_manager.send_raw_event(data)
                     elif event_type not in ['sessionStart', 'sessionEnd']:
-                        debug_print(f"Received event {event_type} but no active stream manager")
+                        logger.warning(f"Received event {event_type} but no active stream manager")
                         
             except json.JSONDecodeError:
-                print("Invalid JSON received from WebSocket")
+                logger.error("Invalid JSON received from WebSocket")
             except Exception as e:
-                print(f"Error processing WebSocket message: {e}")
-                if DEBUG:
-                    import traceback
-                    traceback.print_exc()
+                logger.error(f"Error processing WebSocket message: {e}", exc_info=logger.isEnabledFor(logging.DEBUG))
+
     except websockets.exceptions.ConnectionClosed:
-        print("WebSocket connection closed")
+        logger.info("WebSocket connection closed")
+        
     finally:
         # Clean up resources
         if stream_manager:
@@ -212,71 +199,75 @@ async def forward_responses(websocket, stream_manager):
         # Task was cancelled
         pass
     except Exception as e:
-        print(f"Error forwarding responses: {e}")
+        logger.error(f"Error forwarding responses: {e}", exc_info=True)
         # Close connection
         websocket.close()
         stream_manager.close()
 
 
-async def main(host, port, health_port, enable_mcp=False, enable_strands_agent=False):
+async def main(host, port, health_port, enable_strands_agent=False):
 
     if health_port:
         try:
             start_health_check_server(host, health_port)
         except Exception as ex:
-            print("Failed to start health check endpoint",ex)
+            logger.error(f"Failed to start health check endpoint: {ex}", exc_info=True)
     
     # Init Strands Agent
     if enable_strands_agent:
-        print("Strands agent enabled")
+        logger.info("Strands agent enabled")
         try:
             global STRANDS_AGENT
             STRANDS_AGENT = StrandsAgent()
         except Exception as ex:
-            print("Failed to start MCP client",ex)
+            logger.error(f"Failed to start Strands client: {ex}", exc_info=True)
 
     """Main function to run the WebSocket server."""
     try:
         # Start WebSocket server
         async with websockets.serve(websocket_handler, host, port):
-            print(f"WebSocket server started at host:{host}, port:{port}")
+            logger.info(f"WebSocket server started at host:{host}, port:{port}")
             
             # Keep the server running forever
             await asyncio.Future()
     except Exception as ex:
-        print("Failed to start websocket service",ex)
+        logger.error(f"Failed to start websocket service: {ex}", exc_info=True)
 
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Nova S2S WebSocket Server')
-    parser.add_argument('--agent', type=str, help='Agent intergation "mcp" or "strands".')
+    parser.add_argument('--enable-strands', action='store_true', help='Enable Strands Agent integration for tool usage')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     args = parser.parse_args()
+
+    # Setup logging based on debug flag
+    setup_logging(debug=args.debug)
+    
+    # Set DEBUG environment variable for other modules
+    if args.debug:
+        os.environ['DEBUG'] = 'true'
+        logger.info('DEBUG MODE ENABLED')
 
     host, port, health_port = None, None, None
     host = str(os.getenv("HOST","localhost"))
     port = int(os.getenv("WS_PORT","8081"))
     if os.getenv("HEALTH_PORT"):
         health_port = int(os.getenv("HEALTH_PORT"))
-
-    enable_mcp = args.agent == "mcp"
-    enable_strands = args.agent == "strands"
+    
+    enable_strands = args.enable_strands
 
     aws_key_id = os.getenv("AWS_ACCESS_KEY_ID")
     aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
 
     if not host or not port:
-        print(f"HOST and PORT are required. Received HOST: {host}, PORT: {port}")
+        logger.error(f"HOST and PORT are required. Received HOST: {host}, PORT: {port}")
     elif not aws_key_id or not aws_secret:
-        print(f"AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required.")
+        logger.error(f"AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required.")
     else:
         try:
-            asyncio.run(main(host, port, health_port, enable_mcp, enable_strands))
+            asyncio.run(main(host, port, health_port, enable_strands))
         except KeyboardInterrupt:
-            print("Server stopped by user")
+            logger.info("Server stopped by user")
         except Exception as e:
-            print(f"Server error: {e}")
-            if args.debug:
-                import traceback
-                traceback.print_exc()
+            logger.error(f"Server error: {e}", exc_info=True)

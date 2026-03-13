@@ -14,12 +14,10 @@ def setup_logging(debug=False):
     # Configure root logger
     logging.basicConfig(
         level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format='%(asctime)s [%(levelname)-5s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Set level for specific loggers if needed
-    if not debug:
-        # Suppress verbose third-party library logs in non-debug mode
-        logging.getLogger('websockets').setLevel(logging.WARNING)
-        logging.getLogger('asyncio').setLevel(logging.WARNING)
+    # Suppress verbose third-party library logs
+    for name in ['websockets', 'asyncio', 'botocore.loaders', 'botocore.hooks']:
+        logging.getLogger(name).propagate = False

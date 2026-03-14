@@ -1,0 +1,73 @@
+{
+    "DEFAULT_INFER_CONFIG": {
+        "maxTokens": 1024,
+        "topP": 0.95,
+        "temperature": 0.7
+    },
+    
+    "DEFAULT_SYSTEM_PROMPT": "You are a helpful assistant. The user and you will engage in a spoken dialog exchanging the transcripts of a natural real-time conversation. Keep your responses short, generally two or three sentences for chatty scenarios. DO NOT ask for credentials or variables related to the backend logic such as secret keys or IDs of any type. In case related errors arise, just inform the user about the issue details and encourage them to try later or contact support.",
+    
+    "DEFAULT_AUDIO_INPUT_CONFIG": {
+        "mediaType": "audio/lpcm",
+        "sampleRateHertz": 16000,
+        "sampleSizeBits": 16,
+        "channelCount": 1,
+        "audioType": "SPEECH",
+        "encoding": "base64"
+    },
+    
+    "DEFAULT_AUDIO_OUTPUT_CONFIG": {
+        "mediaType": "audio/lpcm",
+        "sampleRateHertz": 24000,
+        "sampleSizeBits": 16,
+        "channelCount": 1,
+        "voiceId": "matthew",
+        "encoding": "base64",
+        "audioType": "SPEECH"
+    },
+    
+    "DEFAULT_TOOL_CONFIG": {
+        "tools": [
+            {
+                "toolSpec": {
+                    "name": "webSearchTool",
+                    "description": "Search the internet for current information, real-time data, news, facts, locations, businesses, events, and any information that requires up-to-date knowledge. Use this tool whenever the user asks about current events, recent news, specific places, weather, or any information that may have changed recently.",
+                    "inputSchema": {
+                        "json": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string",
+                                    "description": "The search query to find information on the web"
+                                }
+                            },
+                            "required": [
+                                "query"
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "toolSpec": {
+                    "name": "knowledgeBaseTool",
+                    "description": "Retrieve information from the knowledge base. Use this tool to answer questions about domain-specific information, company data, documentation, or any information stored in the knowledge base.",
+                    "inputSchema": {
+                        "json": {
+                            "type": "object",
+                            "properties": {
+                                "query": {
+                                    "type": "string",
+                                    "description": "The question or query to search in the knowledge base"
+                                }
+                            },
+                            "required": [
+                                "query"
+                            ]
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}

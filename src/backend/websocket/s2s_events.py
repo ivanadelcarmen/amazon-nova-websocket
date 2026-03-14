@@ -1,53 +1,20 @@
 import json
+from utils import get_agent_config
+
+config = get_agent_config()
+
+# Stringify inputSchema JSON definitions for tools
+for tool in config['DEFAULT_TOOL_CONFIG']['tools']:
+  schema = tool['toolSpec']['inputSchema']['json']
+  tool['toolSpec']['inputSchema']['json'] = json.dumps(schema)
 
 class S2sEvent:
   # Default configuration values
-  DEFAULT_INFER_CONFIG = {
-        "maxTokens": 1024,
-        "topP": 0.95,
-        "temperature": 0.7
-    }
-
-  DEFAULT_SYSTEM_PROMPT = "You are a friendly assistant. The user and you will engage in a spoken dialog " \
-    "exchanging the transcripts of a natural real-time conversation. Keep your responses short, " \
-    "generally two or three sentences for chatty scenarios."
-
-  DEFAULT_AUDIO_INPUT_CONFIG = {
-        "mediaType":"audio/lpcm",
-        "sampleRateHertz":16000,
-        "sampleSizeBits":16,
-        "channelCount":1,
-        "audioType":"SPEECH","encoding":"base64"
-      }
-  DEFAULT_AUDIO_OUTPUT_CONFIG = {
-          "mediaType": "audio/lpcm",
-          "sampleRateHertz": 24000,
-          "sampleSizeBits": 16,
-          "channelCount": 1,
-          "voiceId": "matthew",
-          "encoding": "base64",
-          "audioType": "SPEECH"
-        }
-  DEFAULT_TOOL_CONFIG = {
-          "tools": [
-              {
-                  "toolSpec": {
-                      "name": "getDateTool",
-                      "description": "get information about the current day",
-                      "inputSchema": {
-                          "json": '''{
-                            "type": "object",
-                            "properties": {},
-                            "required": []
-                        }'''
-                      }
-                  }
-              }
-          ]
-        }
-  BYOLLM_TOOL_CONFIG = {
-    "tools": []
-  }
+  DEFAULT_INFER_CONFIG = config['DEFAULT_INFER_CONFIG']
+  DEFAULT_SYSTEM_PROMPT = config['DEFAULT_SYSTEM_PROMPT']
+  DEFAULT_AUDIO_INPUT_CONFIG = config['DEFAULT_AUDIO_INPUT_CONFIG']
+  DEFAULT_AUDIO_OUTPUT_CONFIG = config['DEFAULT_AUDIO_OUTPUT_CONFIG']
+  DEFAULT_TOOL_CONFIG = config['DEFAULT_TOOL_CONFIG']
 
   @staticmethod
   def session_start(inference_config=DEFAULT_INFER_CONFIG): 
@@ -56,7 +23,7 @@ class S2sEvent:
   @staticmethod
   def prompt_start(prompt_name, 
                    audio_output_config=DEFAULT_AUDIO_OUTPUT_CONFIG, 
-                   tool_config=BYOLLM_TOOL_CONFIG):
+                   tool_config=DEFAULT_TOOL_CONFIG):
     return {
           "event": {
             "promptStart": {

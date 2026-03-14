@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Box, SpaceBetween, Button, FormField, Select, Textarea, Container, Header, ColumnLayout, Badge } from '@cloudscape-design/components';
-import { VoicesByLanguage } from '../helper/config';
+import { VoicesByLanguage } from '../helper/configVoices';
 
 class Settings extends React.Component {
     constructor(props) {

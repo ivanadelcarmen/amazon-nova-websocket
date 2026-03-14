@@ -1,13 +1,12 @@
 import React, { createRef } from 'react';
 import './s2s.css'
-import { Icon, Alert, Button, Modal, Box, SpaceBetween, FormField, Select, Textarea, Checkbox, Input, Container, Header, Badge } from '@cloudscape-design/components';
+import { Icon, Alert, Button, Modal, Box, SpaceBetween, FormField, Textarea, Checkbox, Input, Container, Header, Badge } from '@cloudscape-design/components';
 import S2sEvent from './helper/s2sEvents';
 import Meter from './components/meter';
 import S2sEventDisplay from './components/eventDisplay';
 import Settings from './components/settings';
 import { base64ToFloat32Array } from './helper/audioHelper';
 import AudioPlayer from './helper/audioPlayer';
-import { DemoProfiles, Voices } from './helper/config';
 
 class S2sChatBot extends React.Component {
 
@@ -26,12 +25,6 @@ class S2sChatBot extends React.Component {
             audioChunks: [],
             audioPlayPromise: null,
             includeChatHistory: false,
-
-            selectedDemoProfileOption: DemoProfiles ? {
-                label: DemoProfiles[0].name,
-                value: DemoProfiles[0].name,
-                description: DemoProfiles[0].description
-            } : {},
 
             promptName: null,
             textContentName: null,
@@ -104,7 +97,6 @@ class S2sChatBot extends React.Component {
     saveStateToStorage = () => {
         const stateToSave = {
             includeChatHistory: this.state.includeChatHistory,
-            selectedDemoProfileOption: this.state.selectedDemoProfileOption,
             configVoiceIdOption: this.state.configVoiceIdOption,
             configTurnSensitivity: this.state.configTurnSensitivity,
             configSystemPrompt: this.state.configSystemPrompt,
@@ -127,7 +119,6 @@ class S2sChatBot extends React.Component {
                 const parsedState = JSON.parse(savedState);
                 this.setState({
                     includeChatHistory: parsedState.includeChatHistory || false,
-                    selectedDemoProfileOption: parsedState.selectedDemoProfileOption || this.state.selectedDemoProfileOption,
                     configVoiceIdOption: parsedState.configVoiceIdOption || this.state.configVoiceIdOption,
                     configTurnSensitivity: parsedState.configTurnSensitivity || this.state.configTurnSensitivity,
                     configSystemPrompt: parsedState.configSystemPrompt || this.state.configSystemPrompt,
@@ -260,15 +251,9 @@ class S2sChatBot extends React.Component {
                 break;
             case "contentStart":
                 if (contentType === "TEXT") {
-                    var generationStage = "";
-                    if (message.event.contentStart.additionalModelFields) {
-                        generationStage = JSON.parse(message.event.contentStart.additionalModelFields)?.generationStage;
-                    }
-
                     chatMessages[contentId] = {
                         "content": "",
                         "role": role,
-                        "generationStage": generationStage,
                         "raw": [],
                         "inputSource": "audio", // Messages from ASR are audio-based
                     };
@@ -529,20 +514,7 @@ class S2sChatBot extends React.Component {
 
     }
 
-    handleDemoProfileChange = e => {
-        this.setState({ selectedDemoProfileOption: e.detail.selectedOption });
-        var demoProfile = DemoProfiles.find(obj => obj.name === e.detail.selectedOption.value);
-        if (demoProfile) {
-            this.setState({
-                configVoiceIdOption: Voices.find(i => i.value === demoProfile.voiceId),
-                configSystemPrompt: demoProfile.systemPrompt,
-                configToolUse: JSON.stringify(demoProfile.toolConfig, null, 4),
-            }, () => {
-                // Save state after profile change
-                this.saveStateToStorage();
-            });
-        }
-    }
+    // Removed handleDemoProfileChange since a single profile is going to be used
 
     handleSendText = e => {
         if (e.key === "Enter") {
@@ -562,7 +534,6 @@ class S2sChatBot extends React.Component {
         chatMessages[textContentName] = {
             content: this.state.inputText,
             role: "USER",
-            generationStage: "",
             raw: [],
             inputSource: "text" // Messages from text input are text-based
         };
@@ -621,19 +592,6 @@ class S2sChatBot extends React.Component {
                         </div>
                         <div className='header-right'>
                             <div className='controls-group'>
-                                <div className='profile-selector'>
-                                    <span className='profile-label'>Select Profile:</span>
-                                    <Select
-                                        selectedOption={this.state.selectedDemoProfileOption}
-                                        onChange={this.handleDemoProfileChange}
-                                        options={DemoProfiles ? DemoProfiles.map(item => ({
-                                            label: item.name,
-                                            value: item.name,
-                                            description: item.description
-                                        })) : []}
-                                        placeholder="Choose a profile"
-                                    />
-                                </div>
                                 <div className='setting'>
                                     <Button
                                         onClick={() => this.setState({ showConfig: true })}
@@ -672,7 +630,6 @@ class S2sChatBot extends React.Component {
                                                     />
                                                 )}&nbsp;
                                                 {msg.content}
-                                                {msg.role === "ASSISTANT" && msg.generationStage ? ` [${msg.generationStage}]` : ""}
                                             </div>
                                         </div>
                                     })}

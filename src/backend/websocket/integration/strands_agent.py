@@ -1,51 +1,65 @@
-from strands import Agent, tool
-from strands.models import BedrockModel
-import boto3 
 import os
 import json
-import requests
 import re
 
-@tool
-def weather(lat, lon: float) -> str:
-    """Get weather information for a given lat and lon
+import boto3 
+from strands import Agent
+from strands.models import BedrockModel
+from strands_tools import tavily
+from strands_tools import retrieve
 
-    Args:
-        lat: latitude of the location
-        lon: logitude of the location
-    """
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": str(lat),
-        "longitude": str(lon),
-        "current_weather": True
-    }
-    # Default weather response in case of open-meteo call failure
-    result = {"generationtime_ms": 0.07450580596923828, "utc_offset_seconds": 0, "timezone": "GMT", "timezone_abbreviation": "GMT", "elevation": 76.0, "current_weather_units": {"time": "iso8601", "interval": "seconds", "temperature": "\u00b0C", "windspeed": "km/h", "winddirection": "\u00b0", "is_day": "", "weathercode": "wmo code"}, "current_weather": {"time": "2025-07-11T12:30", "interval": 900, "temperature": 21.6, "windspeed": 6.1, "winddirection": 360, "is_day": 1, "weathercode": 2}}
-    try:
-        response = requests.get(url, params=params)
-        result = response.json()["current_weather"]
-    except Exception as ex:
-        print(ex)
-    return result
 
 class StrandsAgent:
+    """
+    The Strands Agent definition to be passed to the S2S session manager when
+    running the WebSocket server, which runs on Amazon Nova Lite and includes two
+    coded tools for Tavily web search and Bedrock Knowledge Base retrieval.
 
+    For both tools to work, the following environment variables must be set
+    before running the server:
+
+        1. KNOWLEDGE_BASE_ID
+        2. TAVILY_API_KEY
+    """
     def __init__(self):
         session = boto3.Session(
             region_name=os.getenv("AWS_REGION", "us-east-1"),
         )
+
         # Specify Bedrock LLM for the Agent
         bedrock_model = BedrockModel(
             model_id="amazon.nova-lite-v1:0",
             boto_session=session
         )
-        # Create a Strands Agent
-        tools = [weather]
+
+        tools = [tavily, retrieve] # ADD TOOLS HERE
+
         self.agent = Agent(
             tools=tools, 
             model=bedrock_model,
-            system_prompt="You are a chat agent tasked with answering location and weather-related questions. Please include your response within the <response></response> tag."
+            system_prompt=
+            """
+                You are a helpful assistant with access to two powerful tools:
+
+                1. tavily - For web searches and current information
+                Use this tool for:
+                - Current events, news, or recent information
+                - Facts that may have changed recently
+                - Information about specific places, businesses, locations, or concepts
+                - Any question that requires up-to-date or real-world data
+                - Questions about things happening now or recently
+
+                2. retrieve - For querying the knowledge base
+                Use this tool for:
+                - Domain-specific information stored in the knowledge base
+                - Company documentation, policies, or internal data
+                - Questions about information that should be in the knowledge base
+                - Detailed information about specific topics covered in the knowledge base
+
+                Keep your responses CONCISE and SHORT (2-3 sentences maximum). This is for a voice conversation, so brevity is essential.
+
+                Always provide your final response within <response></response> tags.
+            """
         )
 
 

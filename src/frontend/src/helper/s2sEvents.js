@@ -1,68 +1,17 @@
+import { DEFAULT_AUDIO_INPUT_CONFIG, DEFAULT_AUDIO_OUTPUT_CONFIG, DEFAULT_INFER_CONFIG, DEFAULT_SYSTEM_PROMPT, DEFAULT_TOOL_CONFIG } from '../agent/config.json'
+
+// Stringify inputSchema JSON definitions for tools
+DEFAULT_TOOL_CONFIG.tools.forEach(tool => {
+  const schema = tool.toolSpec.inputSchema.json;
+  tool.toolSpec.inputSchema.json = JSON.stringify(schema);
+});
+
 class S2sEvent {
-  static DEFAULT_INFER_CONFIG = {
-    maxTokens: 1024,
-    topP: 0.95,
-    temperature: 0.7
-  };
-
-  static DEFAULT_SYSTEM_PROMPT = "You are a friend. The user and you will engage in a spoken dialog exchanging the transcripts of a natural real-time conversation. Keep your responses short, generally two or three sentences for chatty scenarios.";
-
-  static DEFAULT_AUDIO_INPUT_CONFIG = {
-    mediaType: "audio/lpcm",
-    sampleRateHertz: 16000,
-    sampleSizeBits: 16,
-    channelCount: 1,
-    audioType: "SPEECH",
-    encoding: "base64"
-  };
-
-  static DEFAULT_AUDIO_OUTPUT_CONFIG = {
-    mediaType: "audio/lpcm",
-    sampleRateHertz: 24000,
-    sampleSizeBits: 16,
-    channelCount: 1,
-    voiceId: "matthew",
-    encoding: "base64",
-    audioType: "SPEECH"
-  };
-
-  static DEFAULT_TOOL_CONFIG = {
-    tools: [
-      {
-        toolSpec: {
-          name: "getDateTool",
-          description: "get information about the date and time",
-          inputSchema: {
-            json: JSON.stringify({
-              "type": "object",
-              "properties": {},
-              "required": []
-            }
-            )
-          }
-        }
-      },
-      {
-        toolSpec: {
-          name: "getKbTool",
-          description: "get information about Amazon Nova, Nova Sonic and Amazon foundation models",
-          inputSchema: {
-            json: JSON.stringify({
-              "type": "object",
-              "properties": {
-                "query": {
-                  "type": "string",
-                  "description": "The question about Amazon Nova"
-                }
-              },
-              "required": []
-            }
-            )
-          }
-        }
-      },
-    ]
-  };
+  static DEFAULT_INFER_CONFIG = DEFAULT_INFER_CONFIG;
+  static DEFAULT_SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT;
+  static DEFAULT_AUDIO_INPUT_CONFIG = DEFAULT_AUDIO_INPUT_CONFIG;
+  static DEFAULT_AUDIO_OUTPUT_CONFIG = DEFAULT_AUDIO_OUTPUT_CONFIG;
+  static DEFAULT_TOOL_CONFIG = DEFAULT_TOOL_CONFIG;
 
   static DEFAULT_CHAT_HISTORY = [
     {
@@ -165,26 +114,18 @@ class S2sEvent {
   }
 
   static contentStartAudio(promptName, contentName, audioInputConfig = S2sEvent.DEFAULT_AUDIO_INPUT_CONFIG) {
-    return {
-      "event": {
-        "contentStart": {
-          "promptName": promptName,
-          "contentName": contentName,
-          "type": "AUDIO",
-          "interactive": true,
-          "role": "USER",
-          "audioInputConfiguration": {
-            "mediaType": "audio/lpcm",
-            "sampleRateHertz": 16000,
-            "sampleSizeBits": 16,
-            "channelCount": 1,
-            "audioType": "SPEECH",
-            "encoding": "base64"
+      return {
+        "event": {
+          "contentStart": {
+            "promptName": promptName,
+            "contentName": contentName,
+            "type": "AUDIO",
+            "interactive": true,
+            "audioInputConfiguration": audioInputConfig
           }
         }
       }
     }
-  }
 
   static audioInput(promptName, contentName, content) {
     return {
@@ -199,35 +140,35 @@ class S2sEvent {
   }
 
   static contentStartTool(promptName, contentName, toolUseId) {
-    return {
-      event: {
-        contentStart: {
-          promptName,
-          contentName,
-          interactive: false,
-          type: "TOOL",
-          toolResultInputConfiguration: {
-            toolUseId,
-            type: "TEXT",
-            textInputConfiguration: { mediaType: "text/plain" }
+      return {
+        event: {
+          contentStart: {
+            promptName,
+            contentName,
+            interactive: false,
+            type: "TOOL",
+            role: "TOOL",
+            toolResultInputConfiguration: {
+              toolUseId,
+              type: "TEXT",
+              textInputConfiguration: { mediaType: "text/plain" }
+            }
           }
         }
-      }
-    };
-  }
+      };
+    }
 
   static textInputTool(promptName, contentName, content) {
-    return {
-      event: {
-        textInput: {
-          promptName,
-          contentName,
-          content,
-          role: "TOOL"
+      return {
+        event: {
+          toolResult: {
+            promptName,
+            contentName,
+            content,
+          }
         }
-      }
-    };
-  }
+      };
+    }
 
   static promptEnd(promptName) {
     return {

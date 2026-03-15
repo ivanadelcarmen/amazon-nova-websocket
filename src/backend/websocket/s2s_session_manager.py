@@ -176,7 +176,7 @@ class S2sSessionManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error processing audio: {e}", exc_info=logger.isEnabledFor(logging.DEBUG))
+                logger.error(f"Error processing audio: {str(e)}", exc_info=logger.isEnabledFor(logging.DEBUG))
     
     def add_audio_chunk(self, prompt_name, content_name, audio_data):
         """Add an audio chunk to the queue."""
@@ -299,42 +299,12 @@ class S2sSessionManager:
                 content = toolUseContent.get("content")  # Pass the JSON string directly to the agent
                 print(f"Extracted query: {content}")
             
-            # Strands Agent integration with Tavily web search
-            if toolName == "websearchtool":
-                print("Processing webSearchTool")
-                if self.strands_agent:
-                    # Extract the query from the JSON content
-                    try:
-                        if isinstance(content, str):
-                            query_data = json.loads(content)
-                        else:
-                            query_data = content
-                        
-                        # The query should be in the 'query' field based on the tool schema
-                        query = query_data.get("query", content)
-                        print(f"Web search query: {query}")
-                        result = self.strands_agent.query(query)
-                        print(f"Web search result length: {len(str(result))}")
-                        
-                        # Truncate result if it's too long (Sonic has limits)
-                        if isinstance(result, str) and len(result) > 2000:
-                            print(f"Truncating web search result from {len(result)} to 2000 characters")
-                            result = result[:2000] + "..."
-                        
-                    except Exception as e:
-                        print(f"Error in web search: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        result = f"Error performing web search: {str(e)}"
-                else:
-                    print("Strands agent not available")
-                    result = "Web search is not available"
+            # Process the tool according to the registered tools in the S2S configuration
+            toolNames = [tool["toolSpec"]["name"].lower() for tool in S2sEvent.DEFAULT_TOOL_CONFIG["tools"]]
             
-            # Strands Agent integration with Knowledge Base retrieval
-            elif toolName == "knowledgebasetool":
-                print("Processing knowledgeBaseTool")
+            if toolName in toolNames:
+                logger.info(f"Processing {toolName}")
                 if self.strands_agent:
-                    # Extract the query from the JSON content
                     try:
                         if isinstance(content, str):
                             query_data = json.loads(content)
@@ -343,23 +313,22 @@ class S2sSessionManager:
                         
                         # The query should be in the 'query' field based on the tool schema
                         query = query_data.get("query", content)
-                        print(f"Knowledge base query: {query}")
+                        logger.debug(f"({toolName}) query: {query}")
+
                         result = self.strands_agent.query(query)
-                        print(f"KB result length: {len(str(result))}")
                         
                         # Truncate result if it's too long (Sonic has limits)
                         if isinstance(result, str) and len(result) > 2000:
-                            print(f"Truncating KB result from {len(result)} to 2000 characters")
+                            logger.info(f"Truncating result from {len(result)} to 2000 characters")
                             result = result[:2000] + "..."
                         
                     except Exception as e:
-                        print(f"Error in KB query: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        result = f"Error querying knowledge base: {str(e)}"
+                        logger.error(f"Error using tool {toolName}: {str(e)}", exc_info=True)
+                        result = f"An error occured while attempting to use {toolName}: {str(e)}"
+                
                 else:
-                    print("Strands agent not available")
-                    result = "Knowledge base is not available"
+                    logger.info("Strands agent not available")
+                    result = f"{toolName} is not available"
 
             if not result:
                 result = "no result found"
@@ -367,8 +336,7 @@ class S2sSessionManager:
             return {"result": result}
             
         except Exception as ex:
-            print(f"Exception in processToolUse: {ex}")
-            traceback.print_exc()
+            logger.error(f"Exception in processToolUse: {str(ex)}", exc_info=True)
             return {"result": "An error occurred while attempting to retrieve information related to the toolUse event."}
     
     async def close(self):
@@ -407,7 +375,7 @@ class S2sSessionManager:
             try:
                 await self.stream.input_stream.close()
             except Exception as e:
-                logger.debug(f"Error closing stream: {e}")
+                logger.debug(f"Error closing stream: {str(e)}")
         
         if self.response_task and not self.response_task.done():
             self.response_task.cancel()

@@ -7,3 +7,4 @@ __pycache__
 .local_data
 node_modules
 package-lock.json
+src/backend/websocket/config.json

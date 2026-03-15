@@ -1,4 +1,12 @@
-import { DEFAULT_AUDIO_INPUT_CONFIG, DEFAULT_AUDIO_OUTPUT_CONFIG, DEFAULT_INFER_CONFIG, DEFAULT_SYSTEM_PROMPT, DEFAULT_TOOL_CONFIG } from '../agent/config.json'
+import config from '../agent/config.json'
+
+const {
+  DEFAULT_AUDIO_INPUT_CONFIG,
+  DEFAULT_AUDIO_OUTPUT_CONFIG,
+  DEFAULT_INFER_CONFIG,
+  DEFAULT_SYSTEM_PROMPT,
+  DEFAULT_TOOL_CONFIG
+} = config;
 
 // Stringify inputSchema JSON definitions for tools
 DEFAULT_TOOL_CONFIG.tools.forEach(tool => {

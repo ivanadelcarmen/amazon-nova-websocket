@@ -24,7 +24,6 @@ class S2sChatBot extends React.Component {
             events: [],
             audioChunks: [],
             audioPlayPromise: null,
-            includeChatHistory: false,
 
             promptName: null,
             textContentName: null,
@@ -40,8 +39,7 @@ class S2sChatBot extends React.Component {
             configAudioOutput: S2sEvent.DEFAULT_AUDIO_OUTPUT_CONFIG,
             configVoiceIdOption: { label: "Matthew (en-US)", value: "matthew" },
             configTurnSensitivity: "MEDIUM",
-            configToolUse: JSON.stringify(S2sEvent.DEFAULT_TOOL_CONFIG, null, 2),
-            configChatHistory: JSON.stringify(S2sEvent.DEFAULT_CHAT_HISTORY, null, 2),
+            configToolUse: JSON.stringify(S2sEvent.DEFAULT_TOOL_CONFIG, null, 2)
         };
         this.socket = null;
         this.mediaRecorder = null;
@@ -96,12 +94,10 @@ class S2sChatBot extends React.Component {
 
     saveStateToStorage = () => {
         const stateToSave = {
-            includeChatHistory: this.state.includeChatHistory,
             configVoiceIdOption: this.state.configVoiceIdOption,
             configTurnSensitivity: this.state.configTurnSensitivity,
             configSystemPrompt: this.state.configSystemPrompt,
             configToolUse: this.state.configToolUse,
-            configChatHistory: this.state.configChatHistory,
             configAudioOutput: this.state.configAudioOutput
         };
 
@@ -118,12 +114,10 @@ class S2sChatBot extends React.Component {
             if (savedState) {
                 const parsedState = JSON.parse(savedState);
                 this.setState({
-                    includeChatHistory: parsedState.includeChatHistory || false,
                     configVoiceIdOption: parsedState.configVoiceIdOption || this.state.configVoiceIdOption,
                     configTurnSensitivity: parsedState.configTurnSensitivity || this.state.configTurnSensitivity,
                     configSystemPrompt: parsedState.configSystemPrompt || this.state.configSystemPrompt,
                     configToolUse: parsedState.configToolUse || this.state.configToolUse,
-                    configChatHistory: parsedState.configChatHistory || this.state.configChatHistory,
                     configAudioOutput: parsedState.configAudioOutput || this.state.configAudioOutput
                 });
 
@@ -360,18 +354,7 @@ class S2sChatBot extends React.Component {
                 this.sendEvent(S2sEvent.textInput(promptName, textContentName, this.state.configSystemPrompt));
                 this.sendEvent(S2sEvent.contentEnd(promptName, textContentName));
 
-                // Chat history
-                if (this.state.includeChatHistory) {
-                    var chatHistory = JSON.parse(this.state.configChatHistory);
-                    if (chatHistory === null) chatHistory = S2sEvent.DEFAULT_CHAT_HISTORY;
-                    for (const chat of chatHistory) {
-                        const chatHistoryContentName = crypto.randomUUID();
-                        this.sendEvent(S2sEvent.contentStartText(promptName, chatHistoryContentName, chat.role));
-                        this.sendEvent(S2sEvent.textInput(promptName, chatHistoryContentName, chat.content));
-                        this.sendEvent(S2sEvent.contentEnd(promptName, chatHistoryContentName));
-                    }
-
-                }
+                // Chat history options have been removed
 
                 this.sendEvent(S2sEvent.contentStartAudio(promptName, audioContentName));
             };
@@ -570,20 +553,6 @@ class S2sChatBot extends React.Component {
                                     {this.state.sessionStarted ? "End Conversation" : "Start Conversation"}
                                 </Button>
                             </div>
-                            <div className='header-options'>
-                                <Checkbox
-                                    checked={this.state.includeChatHistory}
-                                    onChange={({ detail }) => {
-                                        this.setState({ includeChatHistory: detail.checked }, () => {
-                                            this.saveStateToStorage();
-                                        });
-                                    }}
-                                    className="chat-history-checkbox"
-                                    description="You can view sample chat history in the settings"
-                                >
-                                    Include chat history
-                                </Checkbox>
-                            </div>
                             {this.state.showUsage && (
                                 <div className='meter-container'>
                                     <Meter ref={this.meterRef} />
@@ -760,7 +729,6 @@ class S2sChatBot extends React.Component {
                     configTurnSensitivity={this.state.configTurnSensitivity}
                     configSystemPrompt={this.state.configSystemPrompt}
                     configToolUse={this.state.configToolUse}
-                    configChatHistory={this.state.configChatHistory}
                     onSettingsChange={(updatedSettings) => {
                         this.setState(updatedSettings, () => {
                             this.saveStateToStorage();

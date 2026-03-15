@@ -13,33 +13,6 @@ class S2sEvent {
   static DEFAULT_AUDIO_OUTPUT_CONFIG = DEFAULT_AUDIO_OUTPUT_CONFIG;
   static DEFAULT_TOOL_CONFIG = DEFAULT_TOOL_CONFIG;
 
-  static DEFAULT_CHAT_HISTORY = [
-    {
-      "content": "hi there i would like to cancel my hotel reservation",
-      "role": "USER"
-    },
-    {
-      "content": "Hello! I'd be happy to assist you with cancelling your hotel reservation. To get started, could you please provide me with your full name and the check-in date for your reservation?",
-      "role": "ASSISTANT"
-    },
-    {
-      "content": "yeah so my name is don smith",
-      "role": "USER"
-    },
-    {
-      "content": "Thank you, Don. Now, could you please provide me with the check-in date for your reservation?",
-      "role": "ASSISTANT"
-    },
-    {
-      "content": "yes so um let me check just a second",
-      "role": "USER"
-    },
-    {
-      "content": "Take your time, Don. I'll be here when you're ready.",
-      "role": "ASSISTANT"
-    }
-  ];
-
   static sessionStart(inferenceConfig = S2sEvent.DEFAULT_INFER_CONFIG, turnSensitivity = "LOW") {
     return {
       event: {

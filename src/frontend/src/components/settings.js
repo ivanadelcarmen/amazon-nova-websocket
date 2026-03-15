@@ -9,8 +9,7 @@ class Settings extends React.Component {
             configVoiceIdOption: props.configVoiceIdOption,
             configTurnSensitivity: props.configTurnSensitivity,
             configSystemPrompt: props.configSystemPrompt,
-            configToolUse: props.configToolUse,
-            configChatHistory: props.configChatHistory
+            configToolUse: props.configToolUse
         };
     }
 
@@ -19,14 +18,12 @@ class Settings extends React.Component {
         if (prevProps.configVoiceIdOption !== this.props.configVoiceIdOption ||
             prevProps.configTurnSensitivity !== this.props.configTurnSensitivity ||
             prevProps.configSystemPrompt !== this.props.configSystemPrompt ||
-            prevProps.configToolUse !== this.props.configToolUse ||
-            prevProps.configChatHistory !== this.props.configChatHistory) {
+            prevProps.configToolUse !== this.props.configToolUse) {
             this.setState({
                 configVoiceIdOption: this.props.configVoiceIdOption,
                 configTurnSensitivity: this.props.configTurnSensitivity,
                 configSystemPrompt: this.props.configSystemPrompt,
-                configToolUse: this.props.configToolUse,
-                configChatHistory: this.props.configChatHistory
+                configToolUse: this.props.configToolUse
             });
         }
     }
@@ -70,13 +67,6 @@ class Settings extends React.Component {
         this.setState({ configToolUse: detail.value });
         if (this.props.onSettingsChange) {
             this.props.onSettingsChange({ configToolUse: detail.value });
-        }
-    }
-
-    handleChatHistoryChange = ({ detail }) => {
-        this.setState({ configChatHistory: detail.value });
-        if (this.props.onSettingsChange) {
-            this.props.onSettingsChange({ configChatHistory: detail.value });
         }
     }
 
@@ -252,25 +242,6 @@ class Settings extends React.Component {
                                     value={this.state.configToolUse}
                                     rows={8}
                                     placeholder='{"tools": []}'
-                                    resize="vertical"
-                                />
-                            </FormField>
-
-                            <FormField
-                                label={
-                                    <SpaceBetween direction="horizontal" size="xs">
-                                        <span>Chat History</span>
-                                        <Badge color="grey">Context</Badge>
-                                    </SpaceBetween>
-                                }
-                                description="Sample conversation history to provide context for the AI"
-                                stretch={true}
-                            >
-                                <Textarea
-                                    onChange={this.handleChatHistoryChange}
-                                    value={this.state.configChatHistory}
-                                    rows={10}
-                                    placeholder='[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}]'
                                     resize="vertical"
                                 />
                             </FormField>

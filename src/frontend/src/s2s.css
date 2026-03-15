@@ -122,11 +122,6 @@
     align-items: center;
 }
 
-.s2s .chat-history-checkbox {
-    font-size: 14px;
-    color: #666;
-}
-
 .s2s .header-left .header-options {
     display: flex;
     align-items: center;
@@ -1472,10 +1467,6 @@ hanced Meter Component Styling */
 @media (max-width: 1000px) {
     .s2s .header-left {
         gap: 15px;
-    }
-
-    .s2s .chat-history-checkbox {
-        font-size: 13px;
     }
 }
 

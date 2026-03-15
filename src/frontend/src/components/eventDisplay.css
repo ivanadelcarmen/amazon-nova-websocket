@@ -6,17 +6,6 @@
     display: block;
 }
 
-.s2s .top .action .chathistory {
-    display: inline-block;
-    margin-left: 20px;
-    vertical-align: top;
-}
-
-.s2s .top .action .chathistory .desc {
-    display: block;
-    font-size: small;
-    color: gray;
-}
 .s2s .meter {
     position: absolute;
     top: 20px;

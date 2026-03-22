@@ -9,7 +9,9 @@ import logging
 from aws_sdk_bedrock_runtime.client import BedrockRuntimeClient, InvokeModelWithBidirectionalStreamOperationInput
 from aws_sdk_bedrock_runtime.models import InvokeModelWithBidirectionalStreamInputChunk, BidirectionalInputPayloadPart
 from aws_sdk_bedrock_runtime.config import Config
-from smithy_aws_core.identity import EnvironmentCredentialsResolver
+from smithy_aws_core.identity import ContainerCredentialsResolver, EnvironmentCredentialsResolver
+from smithy_core.aio.identity import ChainedIdentityResolver
+from smithy_http.aio.crt import AWSCRTHTTPClient
 
 from s2s_events import S2sEvent
 
@@ -47,12 +49,29 @@ class S2sSessionManager:
         self.strands_agent = strands_agent
 
     def _initialize_client(self):
-        """Initialize the Bedrock client with SigV4 authentication"""
-        # Create credential chain through environment variables
+        """Initialize the Bedrock client with SigV4 authentication.
+        
+        Uses a credential chain that tries:
+        1. Environment variables for local development
+        2. ECS container credentials for ECS tasks
+        
+        This ensures the client works both locally and in ECS with proper SigV4 signing.
+        """
+        # Create HTTP client for container credentials and store it for proper cleanup
+        self.http_client = AWSCRTHTTPClient()
+        
+        # Create credential chain: try environment variables first, then container credentials
+        credential_resolver = ChainedIdentityResolver(
+            resolvers=(
+                EnvironmentCredentialsResolver(),
+                ContainerCredentialsResolver(http_client=self.http_client),
+            )
+        )
+
         config = Config(
             endpoint_uri=f"https://bedrock-runtime.{self.region}.amazonaws.com",
             region=self.region,
-            aws_credentials_identity_resolver=EnvironmentCredentialsResolver()
+            aws_credentials_identity_resolver=credential_resolver
         )
 
         self.bedrock_client = BedrockRuntimeClient(config=config)
@@ -384,8 +403,17 @@ class S2sSessionManager:
             except asyncio.CancelledError:
                 pass
         
-        # Set stream to None to ensure it's properly cleaned up
+        # Close HTTP client
+        if self.http_client:
+            try:
+                await self.http_client.close()
+            except Exception as e:
+                logger.debug(f"Error closing HTTP client: {e}")
+        
+        # Set stream and http_client to None to ensure they are properly cleaned up
         self.stream = None
         self.response_task = None
+        self.http_client = None
+
         logger.info("Stream manager closed")
         

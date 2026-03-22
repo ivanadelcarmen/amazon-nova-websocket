@@ -1,6 +1,6 @@
-import React, { createRef } from 'react';
+import React from 'react';
 import './eventDisplay.css'
-import { Icon, Alert, Button, Modal, Box, SpaceBetween, Toggle, Container, Header, Badge, CodeEditor } from '@cloudscape-design/components';
+import { Icon, Button, Modal, Box, SpaceBetween, Toggle, Container, Header, Badge } from '@cloudscape-design/components';
 
 class S2sEventDisplay extends React.Component {
 
@@ -20,7 +20,7 @@ class S2sEventDisplay extends React.Component {
     }
 
     componentDidUpdate(prevProps, prevState) {
-        if (prevProps.message != this.props.message) {
+        if (prevProps.message !== this.props.message) {
             this.displayEvent(this.props.message);
         }
     }

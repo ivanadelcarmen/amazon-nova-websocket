@@ -1,6 +1,6 @@
-import React, { createRef } from 'react';
+import React from 'react';
 import './s2s.css'
-import { Icon, Alert, Button, Modal, Box, SpaceBetween, FormField, Textarea, Checkbox, Input, Container, Header, Badge } from '@cloudscape-design/components';
+import { Icon, Alert, Button, Modal, Box, SpaceBetween, Container, Header, Badge } from '@cloudscape-design/components';
 import S2sEvent from './helper/s2sEvents';
 import Meter from './components/meter';
 import S2sEventDisplay from './components/eventDisplay';

@@ -1,148 +1,183 @@
-# Amazon Nova model cookbook 
+# **Amazon Nova S2S full stack application for voice assistance with Strands Agents integration**
 
-## Getting Started
+_**Technology stack**: Python, Node.js, React, `http.server`, `boto3`, Strands Agents SDK, Amazon Nova Sonic & Lite_ \
+_**AWS services**: IAM, EC2/VPC, ECS Fargate, ECR, CloudWatch, Amazon Bedrock_ \
+_**IaC framework**: AWS Cloud Development Kit_
 
-To get started with the code examples, ensure you have access to [Amazon Bedrock](https://aws.amazon.com/bedrock/). Then clone this repo and navigate to one of the folders above.
+## Attribution
 
-### Introduction
+This project is a fork of an official [Amazon Nova S2S workshop](https://github.com/tsanti/amazon-nova-samples/tree/main/speech-to-speech/workshops) but has been heavily modified and is maintained independently.
 
-This project is for the [Amazon Nova Sonic speech-to-speech (S2S) workshop](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US) and is intended for training purposes. It showcases a sample architecture for building applications that integrate with Nova Sonic, with features specifically designed to expose technical details for educational use.
+## Abstract
 
-The project includes two core components:
-- A Python-based WebSocket server that manages the bidirectional streaming connection with Nova Sonic.
-- A React front-end application that communicates with the S2S system through the WebSocket server.
+The following application demonstrates an implementation of the Amazon Nova Sonic model for voice assistance with additional features for using tools via Strands Agents integration. The voice assistant comes by default with two tools for web search using Tavily and for Bedrock Knowledge Base RAG, which are natively implemented through the `strands-agents-tools` package, while the programmatic implementation of additional tools has been made easier given the monolithic architecture of the repository. 
 
-### Enable AWS IAM permissions for Bedrock
+The UI components had been developed using React and the agent flow is integrated through WebSocket speech-to-speech (S2S) sessions, also having midspeech interruption enabled. The backend entrypoint can be executed locally for development or testing, or the server can be deployed via CDK and hosted using ECS Fargate, with Dockerized code pushed into an ECR repository, ideal for production mode.
 
-To grant Bedrock access to your identity, you can:
+## Deployment
 
-- Open the [AWS IAM Console](https://us-east-1.console.aws.amazon.com/iam/home?#)
-- Find your [Role](https://us-east-1.console.aws.amazon.com/iamv2/home?#/roles) (if using SageMaker or otherwise assuming an IAM Role), or else [User](https://us-east-1.console.aws.amazon.com/iamv2/home?#/users)
-- Select *Add Permissions > Create Inline Policy* to attach new inline permissions, open the *JSON* editor and paste in the below example policy:
+### Requirements
 
-```
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "BedrockFullAccess",
-            "Effect": "Allow",
-            "Action": ["bedrock:*"],
-            "Resource": "*"
-        }
-    ]
-}
-```
+* Python version 3.12 or later
 
-For more information on the fine-grained action and resource permissions in Bedrock, check out the [Bedrock Developer Guide](https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started-api.html).
+* AWS CLI profile with administrator-like permissions on the services listed above
 
-### Prerequisites
-- Python 3.12+
-- Node.js 14+ and npm/yarn for UI development
-- AWS account with Bedrock access
-- AWS credentials configured locally
-- In your AWS account, you can self-serve to gain access to the required model. Please refer to [this process](https://catalog.workshops.aws/amazon-nova-sonic-s2s/en-US/100-introduction/03-model-access) for guidance.
-    - Titan text embedding v2
-    - Nova Lite
-    - Nova Micro
-    - Nova Pro
-    - Nova Sonic
+* AWS access to the Amazon Nova Lite (`amazon.nova-lite-v1:0`) and Amazon Nova Sonic (`amazon.nova-sonic-v1:0`) models
 
-## Installation instruction
-Follow these instructions to build and launch both the Python WebSocket server and the React UI, which will allow you to converse with S2S and try out the basic features.
+* Node.js 20.x or later installed (check current [Node.js versions supported by AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/node-versions.html))
 
-Clone the repository:
-    
-```bash
-git clone https://github.com/aws-samples/amazon-nova-samples
-mv amazon-nova-samples/speech-to-speech/workshops nova-s2s-workshop
-rm -rf amazon-nova-samples
-cd nova-s2s-workshop
+* AWS CDK v2 `npm` package installed
+
+* CDK bootstrapped in the AWS account, done by running:
+    ``` bash
+    cdk bootstrap [--profile PROFILE_NAME]
+    ```
+
+#
+
+### Guideline
+
+Before deploying the project, dependencies have to be installed globally or locally in a virtual environment placed in the root directory which has to be activated. To manage the stack without changing internal project settings, run CDK-related commands inside the `src/backend/` directory which contains the already configured CDK source files. Example for Unix-based shells:
+
+``` bash
+python -m venv .venv
+source .venv/bin/activate # PowerShell command: .venv/Scripts/activate
+pip install -r src/backend/requirements.txt
 ```
 
-### Install and start the Python websocket server
-1. Start Python virtual machine
-    ```
-    cd python-server
-    python3 -m venv .venv
-    ```
-    Mac
-    ```
-    source .venv/bin/activate
-    ```
-    Windows
-    ```
-    .venv\Scripts\activate
-    ```
+Preview the CloudFormation template and deploy the project to the cloud by running:
 
-2. Install Python dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+``` bash
+cd src/backend
+cdk synth
+cdk deploy
+```
 
-3. Set environment variables:
-    
-    The AWS access key and secret are required for the Python application, as they are needed by the underlying Smithy authentication library.
-    ```bash
+Delete the project and all of its AWS resources by running:
+
+``` bash
+cd src/backend
+cdk destroy
+```
+
+Additionally, include the `--profile PROFILE_NAME` flag in case of having configured a specific AWS CLI profile.
+
+## Architecture
+
+![AWS architecture diagram](docs/diagram.png)
+
+#
+
+The CDK stack provisions the following resources:
+
+* An ECR repository for hosting the Dockerized WebSocket server image
+* A VPC with two public subnets across two availability zones and no NAT gateways
+* A security group allowing inbound TCP traffic on ports 8081 (WebSocket) and 8082 (health check)
+* An ECS Fargate cluster with a service initially set to 0 desired tasks, to be scaled up after the Docker image is pushed to ECR
+* An IAM task role with permissions for Amazon Bedrock
+* A CloudWatch Log Group for container logging
+
+The service is deployed with `assignPublicIp` enabled and runs on 1 vCPU / 2 GB memory Fargate tasks. A container health check is configured against the `http://localhost:8082/health` endpoint.
+
+The application supports an optional [Strands Agent](https://strandsagents.com/) that orchestrates external tool calls during a voice conversation. When enabled via the `--enable-strands` flag, the WebSocket server initializes a Strands Agent running on Amazon Nova Lite with two native tools implemented in the integration file (`strands_agent.py`):
+
+* `tavily` for real-time web search queries (e.g. current events, locations, facts)
+* `retrieve` for domain-specific RAG queries against a configured Bedrock Knowledge Base
+
+The tool definitions are declared in the S2S session configuration (`config.json`) and are sent to Nova Sonic as part of the prompt setup. When Nova Sonic determines that a tool should be invoked, it emits a `toolUse` event which the session manager intercepts, delegates to the Strands Agent for reasoning and execution, and returns the result back into the S2S stream as a `toolResult` event.
+
+#
+
+### Configuration
+
+Additional tools can be added programmatically by extending the `tools` list in `src/backend/websocket/integration/strands_agent.py` and registering the corresponding tool specification in the `DEFAULT_TOOL_CONFIG` section of `src/frontend/src/agent/config.json`, which should be reflected in the local backend counterpart (`src/backend/websocket/config.json`) which is automatically copied into the ECR repository through the Dockerfile.
+
+Other voice assistant behavior properties can be customized through the `config.json` file:
+
+* **Inference configuration**: `maxTokens`, `topP`, and `temperature` for the Nova Sonic model
+* **System prompt**: The default instructions given to the assistant for conversation behavior
+* **Audio input/output configuration**: Media type, sample rate, bit depth, channel count, and voice ID (review `configVoices.js`)
+* **Tool configuration**: The list of tools exposed to Nova Sonic during the S2S session
+
+The frontend also provides a settings modal accessible during a session, allowing runtime adjustments to the voice ID, system prompt, and tool configuration without restarting the server.
+
+## Development
+
+To run the application locally without deploying to AWS, both the Python WebSocket server and the React frontend need to be started independently.
+
+### Backend
+
+1. Install dependencies globally or preferably in a virtual environment at `src/backend`
+
+#### Locally
+
+2. Set the required environment variables for AWS authentication:
+
+    ``` bash
     export AWS_ACCESS_KEY_ID="YOUR_AWS_ACCESS_KEY_ID"
-    export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET"
+    export AWS_SECRET_ACCESS_KEY="YOUR_AWS_SECRET_ACCESS_KEY"
     export AWS_DEFAULT_REGION="us-east-1"
     ```
-    The WebSocket host and port are optional. If not specified, the application will default to `localhost` and port `8081`.
-    ```bash
+
+3. The WebSocket host and port are optional. If not specified, the server defaults to `localhost:8081`:
+
+    ``` bash
     export HOST="localhost"
     export WS_PORT=8081
     ```
-    The health check port is optional for container deployment such as ECS/EKS. If the environment variable below is not specified, the service will not start the HTTP endpoint for health checks.
-    ```bash
-    export HEALTH_PORT=8082 
+
+    The health check port is optional and intended for container deployments (ECS/EKS). If not set, the HTTP health check endpoint will not start:
+
+    ``` bash
+    export HEALTH_PORT=8082
     ```
-    
-4. Start the python websocket server
-    ```bash
+
+4. Start the server:
+
+    ``` bash
     python server.py
     ```
 
-> Keep the Python WebSocket server running, then run the section below to launch the React web application, which will connect to the WebSocket service.
+    To enable the Strands Agent integration for tool usage (Tavily web search and Bedrock Knowledge Base retrieval), pass the `--enable-strands` flag:
 
-### Install and start the REACT frontend application
-1. Navigate to the `react-client` folder
-    ```bash
-    cd react-client
+    ``` bash
+    python server.py --enable-strands
     ```
-2. Install
-    ```bash
+
+    For the Strands Agent tools to work, the following environment variables must also be set:
+
+    ``` bash
+    export TAVILY_API_KEY="YOUR_TAVILY_API_KEY"
+    export KNOWLEDGE_BASE_ID="YOUR_BEDROCK_KNOWLEDGE_BASE_ID"
+    ```
+
+    Debug mode can be enabled with the `--debug` flag for verbose logging.
+
+> [!NOTE]
+> Keep the WebSocket server running, then launch the React frontend in a separate terminal.
+
+### Frontend
+
+1. Navigate to the frontend directory and install dependencies:
+
+    ``` bash
+    cd src/frontend
     npm install
     ```
 
-3. This step is optional: set environment variables for the React app. If not provided, the application defaults to `ws://localhost:8081`.
+2. Set the WebSocket URL environment variable to the ECS public IP WebSocket address. If not provided, the application defaults to `ws://localhost:8081`:
 
-    ```bash
-    export REACT_APP_WEBSOCKET_URL='YOUR_WEB_SOCKET_URL'
+    ``` bash
+    export REACT_APP_WEBSOCKET_URL="YOUR_WEBSOCKET_URL"
     ```
 
-4. If you want to run the React code outside the workshop environment, update the `homepage` value in the `react-client/package.json` file from "/proxy/3000/" to "."
+3. Start the development server:
 
-5. Run
-    ```
+    ``` bash
     npm start
     ```
 
-When using Chrome, if there’s no sound, please ensure the sound setting is set to Allow
+When using Chrome, ensure the site's sound setting is set to Allow if there is no audio output.
 
-⚠️ **Warning:** Known issue: This UI is intended for demonstration purposes and may encounter state management issues after frequent conversation start/stop actions. Refreshing the page can help resolve the issue.
-
-### Strands Agent integration
-This application demonstrates how to use a [Strands Agent](https://community.aws/content/2xCUnoqntk2PnWDwyb9JJvMjxKA/step-by-step-guide-setting-up-a-strands-agent-with-aws-bedrock) to orchestrate external workflows, integrating [AWS Location MCP server](https://github.com/awslabs/mcp?tab=readme-ov-file#aws-location-service-mcp-server) and a sample Weather tool, showcasing advanced agent reasoning and orchestration.
-
-## Contributing
-
-We welcome community contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## Security
-
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
-
-## License
-
-This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
+> [!WARNING]
+> This UI is intended for demonstration purposes and may encounter state management issues after frequent conversation start/stop actions. Refreshing the page can help resolve the issue.

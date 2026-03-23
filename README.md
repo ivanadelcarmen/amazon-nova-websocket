@@ -45,22 +45,27 @@ source .venv/bin/activate # PowerShell command: .venv/Scripts/activate
 pip install -r src/backend/requirements.txt
 ```
 
-Preview the CloudFormation template and deploy the project to the cloud by running:
+Three Bash scripts have been implemented to easily perform essential operations over the stack and project, with the ability to set a custom AWS CLI profile. First, head to the root folder `scripts`.
+
+Deploy the project to the cloud and push the Docker image to ECR by running:
 
 ``` bash
-cd src/backend
-cdk synth
-cdk deploy
+./deploy.sh
+```
+
+To push any updates in the backend code to the ECR repository run:
+
+``` bash
+./build.sh
 ```
 
 Delete the project and all of its AWS resources by running:
 
 ``` bash
-cd src/backend
-cdk destroy
+./destroy.sh
 ```
 
-Additionally, include the `--profile PROFILE_NAME` flag in case of having configured a specific AWS CLI profile.
+Additionally, include the `-p PROFILE_NAME` flag in case of having configured a specific AWS CLI profile.
 
 ## Architecture
 
@@ -105,11 +110,11 @@ The frontend also provides a settings modal accessible during a session, allowin
 
 To run the application locally without deploying to AWS, both the Python WebSocket server and the React frontend need to be started independently.
 
+#
+
 ### Backend
 
 1. Install dependencies globally or preferably in a virtual environment at `src/backend`
-
-#### Locally
 
 2. Set the required environment variables for AWS authentication:
 
@@ -156,6 +161,8 @@ To run the application locally without deploying to AWS, both the Python WebSock
 > [!NOTE]
 > Keep the WebSocket server running, then launch the React frontend in a separate terminal.
 
+#
+
 ### Frontend
 
 1. Navigate to the frontend directory and install dependencies:
@@ -165,7 +172,7 @@ To run the application locally without deploying to AWS, both the Python WebSock
     npm install
     ```
 
-2. Set the WebSocket URL environment variable to the ECS public IP WebSocket address. If not provided, the application defaults to `ws://localhost:8081`:
+2. Set the WebSocket URL environment variable to the ECS public IP WebSocket address if deployed. If not provided, the application defaults to `ws://localhost:8081`:
 
     ``` bash
     export REACT_APP_WEBSOCKET_URL="YOUR_WEBSOCKET_URL"

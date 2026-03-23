@@ -25,7 +25,6 @@ success() {
 }
 
 warn() {
-  echo ""
   echo -e "${YELLOW}⚠ $1${RESET}"
 }
 

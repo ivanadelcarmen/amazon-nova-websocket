@@ -7,5 +7,12 @@ __pycache__
 .local_data
 node_modules
 package-lock.json
+*.swp
+.pytest_cache
+*.egg-info
+.cdk.staging
+cdk.out
+
+# App-specific resources
 src/backend/websocket/config.json
 .env

@@ -15,15 +15,6 @@ information to effectively respond to your bug report or contribution.
 - Be descriptive but concise: The name should clearly indicate the repo's content without being too long.
 - Avoid special characters: Stick to alphanumeric characters and hyphens.
 
-### Notebooks
-- Use underscores (_) to separate words for improved readability.
-- Include a number prefix for ordering to maintain a logical sequence of notebooks.
-- Be descriptive: Each filename should clearly indicate the content of the notebook.
-
-Examples of good notebook naming:
-- 01_simple_image_generation.ipynb
-- 02_color_guided_generation.ipynb
-- 03_image_guided_generation.ipynb
 
 ## Reporting Bugs/Feature Requests
 

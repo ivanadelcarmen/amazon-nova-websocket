@@ -110,8 +110,6 @@ The frontend also provides a settings modal accessible during a session, allowin
 
 To run the application locally without deploying to AWS, both the Python WebSocket server and the React frontend need to be started independently.
 
-#
-
 ### Backend
 
 1. Install dependencies globally or preferably in a virtual environment at `src/backend`
@@ -188,3 +186,47 @@ When using Chrome, ensure the site's sound setting is set to Allow if there is n
 
 > [!WARNING]
 > This UI is intended for demonstration purposes and may encounter state management issues after frequent conversation start/stop actions. Refreshing the page can help resolve the issue.
+
+## Repository
+
+```
+amazon-nova-websocket/
+│
+├── scripts/                      # Bash scripts for handling essential operations over the project
+│   ├── build.sh                  # Script for building and pushing the Docker image and updating the ECS services
+│   ├── deploy.sh                 # Script for deploying the CDK stack and building and pushing the Docker image
+│   ├── destroy.sh                # Script for destroying the CDK stack
+│   └── lib/                      # Auxiliary functions and helpers for the main scripts
+│
+├── docs/                         # Files related to the project's documentation
+│   └── diagram.png               # Infrastructure flow diagram
+│
+├── src/                          # Source files for the CDK stack, WebSocket server, and React UI
+│   ├── backend/                  # Folder containing the CDK and Strands Agents definitions, and the WebSocket logic
+│   │   ├── cdk/                  # CDK stack definition
+│   │   ├── websocket/            # WebSocket + Strands integration code to be Dockerized along with config.json
+│   │   ├── app.py                # Application file to be referenced by CDK
+│   │   ├── cdk.json              # CDK configuration file with execution, tags, and context attributes
+│   │   └── requirements.txt      # All backend dependencies to be installed using pip
+│   │
+│   └── frontend/                 # Folder containing assets for the web UI and the agent configuration
+│       ├── public/               # Static web metadata assets
+│       └── src/
+│           ├── agent/            # Files related to the full stack agent settings
+│           │   └── config.json   # The agent configuration, including tool definitions
+│           │
+│           ├── components/       # React components
+│           ├── helper/           # Files for audio handling and agent initialization
+│           ├── static/           # Static visual assets
+│           ├── App.js            # Main React application component
+│           ├── s2s.js            # S2S chatbot React component
+│           ├── index.js          # React entrypoint including AWS Amplify settings
+│           ├── s2s.css           # CSS file for application-specific components
+│           └── index.css         # CSS file for the general web interface
+│
+├── CODE_OF_CONDUCT.md            # Information on the Amazon Open Source Code of Conduct
+├── CONTRIBUTING.md               # Guidelines and information for contributing to the project
+├── README.md                     # Project overview, instructions, and architecture details
+├── LICENSE                       # License information for the repository
+└── .gitignore                    # Files and directories to be ignored by Git
+```

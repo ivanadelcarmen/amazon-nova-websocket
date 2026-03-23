@@ -10,12 +10,14 @@ source ./lib/aws.sh
 parse_aws_args "$@"
 setup_aws
 
+get_cdk_contexts
+
 # Deploy stack
 log "Deploying CDK stack..."
 
 cd ../src/backend
 cdk bootstrap $AWS_ARGS
-cdk deploy --require-approval never $AWS_ARGS
+cdk deploy --require-approval never $CDK_ARGS $AWS_ARGS
 
 success "CDK deployment successful"
 

@@ -7,9 +7,11 @@ source ./lib/helpers.sh
 # =======================
 
 parse_aws_args() {
-    while getopts "p:" opt; do
+    while getopts "p:k:t:" opt; do
         case "$opt" in
             p) AWS_PROFILE="$OPTARG";;
+            k) KNOWLEDGE_BASE_ID="$OPTARG";;
+            t) TAVILY_API_KEY="$OPTARG";;
             \?) error "Invalid argument: -$OPTARG";;
         esac
     done
@@ -37,4 +39,25 @@ setup_aws() {
 
     success "AWS Account ID: ${AWS_ACCOUNT_ID}"
     success "AWS Region: ${AWS_REGION}"
+}
+
+get_cdk_contexts() {
+    log "Fetching CDK context parameters..."
+
+    # Set CDK context arguments
+    CDK_ARGS=""
+
+    if [[ -n "$KNOWLEDGE_BASE_ID" ]]; then
+        CDK_ARGS="-c bedrock_kb=${KNOWLEDGE_BASE_ID}"
+        success "Bedrock Knowledge Base ID: $KNOWLEDGE_BASE_ID"
+    else
+        warn "Bedrock Knowledge Base ID: NOT SET"
+    fi
+
+    if [[ -n "$TAVILY_API_KEY" ]]; then
+        CDK_ARGS="${CDK_ARGS} -c tavily_key=${TAVILY_API_KEY}"
+        success "Tavily API Key: ${TAVILY_API_KEY:0:10}..."
+    else
+        warn "Tavily API Key: NOT SET"
+    fi
 }

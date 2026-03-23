@@ -166,6 +166,9 @@ class NovaVoiceAssistantDeployment(Stack):
         )
 
         # Add container to task definition
+        KNOWLEDGE_BASE_ID = self.node.try_get_context("bedrock_kb") or ""
+        TAVILY_API_KEY = self.node.try_get_context("tavily_key") or ""
+
         container = task_definition.add_container(
             "WebSocketContainer",
             image=ecs.ContainerImage.from_ecr_repository(ecr_repo, "latest"),
@@ -177,7 +180,9 @@ class NovaVoiceAssistantDeployment(Stack):
                 "HOST": "0.0.0.0",
                 "WS_PORT": "8081",
                 "HEALTH_PORT": "8082",
-                "AWS_DEFAULT_REGION": self.region
+                "AWS_DEFAULT_REGION": self.region,
+                "KNOWLEDGE_BASE_ID": KNOWLEDGE_BASE_ID,
+                "TAVILY_API_KEY": TAVILY_API_KEY
             },
             port_mappings=[
                 ecs.PortMapping(

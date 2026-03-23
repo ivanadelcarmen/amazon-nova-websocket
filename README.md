@@ -50,8 +50,11 @@ Three Bash scripts have been implemented to easily perform essential operations 
 Deploy the project to the cloud and push the Docker image to ECR by running:
 
 ``` bash
-./deploy.sh
+./deploy.sh -t TAVILY_API_KEY -k KNOWLEDGE_BASE_ID
 ```
+
+> [!NOTE]
+> It is not necessary to set the Tavily and Bedrock Knowledge Base context variables at deployment, but it is required for both Strands Agent tools to work properly
 
 To push any updates in the backend code to the ECR repository run:
 

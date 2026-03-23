@@ -38,6 +38,7 @@ class S2sSessionManager:
         self.stream = None
         self.is_active = False
         self.bedrock_client = None
+        self.http_client = None
         
         # Session information
         self.prompt_name = None  # Will be set from frontend

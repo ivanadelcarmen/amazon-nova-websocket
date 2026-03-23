@@ -210,6 +210,7 @@ amazon-nova-websocket/
 │   │   └── requirements.txt      # All backend dependencies to be installed using pip
 │   │
 │   └── frontend/                 # Folder containing assets for the web UI and the agent configuration
+│       ├── package.json          # All frontend dependencies to be installed using npm
 │       ├── public/               # Static web metadata assets
 │       └── src/
 │           ├── agent/            # Files related to the full stack agent settings

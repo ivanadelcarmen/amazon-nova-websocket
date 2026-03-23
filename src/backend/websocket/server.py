@@ -257,13 +257,8 @@ if __name__ == "__main__":
     
     enable_strands = args.enable_strands
 
-    aws_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
-
     if not host or not port:
         logger.error(f"HOST and PORT are required. Received HOST: {host}, PORT: {port}")
-    elif not aws_key_id or not aws_secret:
-        logger.error(f"AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required.")
     else:
         try:
             asyncio.run(main(host, port, health_port, enable_strands))

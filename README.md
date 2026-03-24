@@ -193,7 +193,7 @@ When using Chrome, ensure the site's sound setting is set to Allow if there is n
 ## Repository
 
 ```
-amazon-nova-websocket/
+aws-nova-voice-assistant/
 │
 ├── scripts/                      # Bash scripts for handling essential operations over the project
 │   ├── build.sh                  # Script for building and pushing the Docker image and updating the ECS services
